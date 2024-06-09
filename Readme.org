@@ -1,0 +1,41 @@
+* WorkLine
+
+A tool to check WORKflow ([[https://github.com][Github]]) or pipeLINE ([[https://gitlab.com][Gitlab]]) status in Emacs from [[https://magit.vc][magit]] and
+[[https://magit.vc/manual/forge/][forge]]. It is inspired by [[https://github.com/TxGVNN/gitlab-pipeline][gitlab-pipeline]] and started as small changes to their code. The
+intention was to provide these upgrades to gitlab-pipeline if accepted as a PR, but as it
+evolved it also included Github actions, thus the name (gitlab-pipeline) did not fit.
+
+** Setup
+
+Possibly add key binding binding for workline as given in the example below.
+
+#+begin_src emacs-lisp
+  (use-package workline-mode)
+  (with-eval-after-load 'magit-mode
+    (when pre-commit-hook-add-default-bindings
+      (keymap-set magit-mode-map "<available key>" #'workline )))
+#+end_src
+
+
+** Usage
+
+- Get workflow/pipelines for current SHA in magit section
+
+  #+begin_src
+  M-x workline-show-sha
+  #+end_src
+
+- Use *workline* transient to get workflow/pipelines for current SHA in magit section
+
+  #+begin_src
+  M-x workline
+  #+end_src
+
+  or use keybinding as described above.
+
+- In a workline section showing the status for all workflow/pipelines the following keys are defined:
+
+  - R :: refresh workline section with updated status
+  - <return> or v :: Show the trace of current job
+  - c :: Cancel a running job
+  - r :: Rerun a job
