@@ -176,51 +176,53 @@
   "Get Gitlab pipelines from sha"
   (glab-graphql
    (if (not (null ref))
-   `(query (project [(fullPath $projectid ID!)]
-      (name)
-      (pipelines
-       [(sha $sha String!) (ref $ref String!)]
-       (nodes
-	(id)
-	(ref)
-	(status)
-	(jobs
-	 (nodes
-	  (id)
-	  (status)
-	  (name)
-	  (downstreamPipeline
-	   (id)
-	   (status)
-	   (jobs
-	    (nodes
-	     (id)
-	     (name)
-	     (status))))
-	  ))))))
-   `(query (project [(fullPath $projectid ID!)]
-      (name)
-      (pipelines
-       [(sha $sha String!)]
-       (nodes
-	(id)
-	(ref)
-	(status)
-	(jobs
-	 (nodes
-	  (id)
-	  (status)
-	  (name)
-	  (downstreamPipeline
-	   (id)
-	   (status)
-	   (jobs
-	    (nodes
-	     (id)
-	     (name)
-	     (status)
-	     )))
-	  )))))))
+       `(query
+	 (project [(fullPath $projectid ID!)]
+		  (name)
+		  (pipelines
+		   [(sha $sha String!) (ref $ref String!)]
+		   (nodes
+		    (id)
+		    (ref)
+		    (status)
+		    (jobs
+		     (nodes
+		      (id)
+		      (status)
+		      (name)
+		      (downstreamPipeline
+		       (id)
+		       (status)
+		       (jobs
+			(nodes
+			 (id)
+			 (name)
+			 (status))))
+		      ))))))
+     `(query
+       (project [(fullPath $projectid ID!)]
+		(name)
+		(pipelines
+		 [(sha $sha String!)]
+		 (nodes
+		  (id)
+		  (ref)
+		  (status)
+		  (jobs
+		   (nodes
+		    (id)
+		    (status)
+		    (name)
+		    (downstreamPipeline
+		     (id)
+		     (status)
+		     (jobs
+		      (nodes
+		       (id)
+		       (name)
+		       (status)
+		       )))
+		    )))))))
    `((projectid . ,projectid)
      (sha . ,sha)
      (ref . ,ref))
