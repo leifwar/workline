@@ -145,28 +145,29 @@
 (defun workline-piplines-all (host projectid)
   "Get pipelines from HOST (Gitlab) using PROJECTID."
   (glab-graphql
-   `(query (project [(fullPath $projectid ID!)]
-      (name)
-      (pipelines
-       (nodes
-	(id)
-	(ref)
-	(status)
-	(jobs
-	 (nodes
-	  (id)
-	  (status)
-	  (name)
-	  (downstreamPipeline
-	   (id)
-	   (status)
-	   (jobs
-	    (nodes
-	     (id)
-	     (status)
-	     (name)
-	     )))
-	  ))))))
+   `(query
+     (project [(fullPath $projectid ID!)]
+	    (name)
+	    (pipelines
+	     (nodes
+	      (id)
+	      (ref)
+	      (status)
+	      (jobs
+	       (nodes
+		(id)
+		(status)
+		(name)
+		(downstreamPipeline
+		 (id)
+		 (status)
+		 (jobs
+		  (nodes
+		   (id)
+		   (status)
+		   (name)
+		   )))
+		))))))
    `((projectid . ,projectid))
    :auth 'forge
    :host host))
