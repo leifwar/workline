@@ -175,54 +175,31 @@
 (defun workline-piplines-from-sha (host projectid sha &optional ref)
   "Get Gitlab pipelines from sha"
   (glab-graphql
-   (if (not (null ref))
-       `(query
-	 (project [(fullPath $projectid ID!)]
-		  (name)
-		  (pipelines
-		   [(sha $sha String!) (ref $ref String!)]
-		   (nodes
-		    (id)
-		    (ref)
-		    (status)
-		    (jobs
-		     (nodes
-		      (id)
-		      (status)
-		      (name)
-		      (downstreamPipeline
-		       (id)
-		       (status)
-		       (jobs
-			(nodes
-			 (id)
-			 (name)
-			 (status))))
-		      ))))))
-     `(query
-       (project [(fullPath $projectid ID!)]
-		(name)
-		(pipelines
-		 [(sha $sha String!)]
+   `(query
+     (project [(fullPath $projectid ID!)]
+	      (name)
+	      (pipelines
+	       ,@(if (not (null ref))
+		     '([(sha $sha String!) (ref $ref String!)])
+		   '([(sha $sha String!)]))
+	       (nodes
+		(id)
+		(ref)
+		(status)
+		(jobs
 		 (nodes
 		  (id)
-		  (ref)
 		  (status)
-		  (jobs
-		   (nodes
-		    (id)
-		    (status)
-		    (name)
-		    (downstreamPipeline
+		  (name)
+		  (downstreamPipeline
+		   (id)
+		   (status)
+		   (jobs
+		    (nodes
 		     (id)
-		     (status)
-		     (jobs
-		      (nodes
-		       (id)
-		       (name)
-		       (status)
-		       )))
-		    )))))))
+		     (name)
+		     (status))))
+		  ))))))
    `((projectid . ,projectid)
      (sha . ,sha)
      (ref . ,ref))
