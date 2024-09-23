@@ -76,6 +76,16 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
 	   (workline-branch-option))
 	(workline-github-section repo (workline-branch-option t)))))
 
+(defun workline-trigger-pipeline ()
+  "Workline trigger pipeline."
+  (interactive)
+  (if-let ((repo (forge-get-repository :valid?)))
+      (if (forge-gitlab-repository--eieio-childp repo)
+	  (workline-gitlab-trigger-pipeline
+	   repo
+	   (workline-branch-option t))
+	(message "only available for gitlab repos"))))
+
 ;;; Key Bindings
 (defvar-keymap workline-mode-map
   :doc "Keymap for pipeline"
@@ -95,10 +105,12 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
 (transient-define-prefix workline ()
   ["Arguments"
    ("a" "Show all branches (with history)" "--all")
+   ("e" "Environment variables (for a trigger)" "--env=")
    ("b" "Current branch only" "--branch")
    ]
   ["Actions"
    ("r" "Get pipeline(s) for current SHA" workline-show-sha)
+   ("t" "Trigger a pipeline" workline-trigger-pipeline)
    ]
   )
 

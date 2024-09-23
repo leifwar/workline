@@ -41,6 +41,29 @@
     (glab-post (format "projects/%s/jobs/%s/%s" (url-hexify-string (format "%s/%s" owner name)) job-id command) nil
 	       :host (oref repo apihost))))
 
+(defun workline-environment-variables ()
+  (if-let (env (transient-arg-value "--env=" (transient-args 'workline)))
+      (let ((variables
+	     (mapcar (lambda (arg)
+		       (if-let ((env (split-string arg "=")))
+			   (let ((key (cons "key" (car env)))
+				 (value (cons "value" (car (cdr env)))))
+			     (list key value))))
+		     (split-string env "\\,"))))
+	(if variables
+	    (list (cons "variables" variables))))))
+
+(defun workline-gitlab-trigger-pipeline (repo ref)
+  "Workline trigger gitlab pipeline"
+  (let ((owner (oref repo owner))
+	(name (oref repo name))
+	(apihost (oref repo apihost)))
+    (glab-post (format "projects/%s/pipeline?ref=%s" (url-hexify-string (format "%s/%s" owner name)) ref) nil
+	       :host apihost
+	       :payload (workline-environment-variables)
+	       :callback (lambda (value _headers _status _req))
+	       )))
+
 (defun workline-get-ref (pipeline)
   (cdr (assoc 'ref pipeline)))
 
