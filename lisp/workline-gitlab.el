@@ -37,9 +37,10 @@
 (defun workline-post-job-at-point-gitlab (repo job-id command)
   ""
   (let ((owner (oref repo owner))
-	(name (oref repo name)))
+	(name (oref repo name))
+	(apihost (oref repo apihost)))
     (glab-post (format "projects/%s/jobs/%s/%s" (url-hexify-string (format "%s/%s" owner name)) job-id command) nil
-	       :host (oref repo apihost))))
+	       :host apihost)))
 
 (defun workline-environment-variables ()
   (if-let (env (transient-arg-value "--env=" (transient-args 'workline)))
