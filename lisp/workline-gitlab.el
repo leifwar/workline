@@ -44,24 +44,6 @@
 (defun workline-get-ref (pipeline)
   (cdr (assoc 'ref pipeline)))
 
-(defun workline-gitlab-section-jobs-debug (ref main-id main-status jobs indent)
-  (seq-doseq (job jobs)
-    (let ((status (cdr (assoc 'status job)))
-	  (job-id (workline--jobid (cdr (assoc 'id job))))
-	  (job-name (cdr (assoc 'name job)))
-	  (downstream-pipeline (cdr (assoc 'downstreamPipeline job))))
-      (if-let ((downstream-id (cdr (assoc 'id downstream-pipeline)))
-	       (downstream-status (cdr (assoc 'status downstream-pipeline)))
-	       (downstream-jobs (cdr (assoc 'jobs downstream-pipeline))))
-	  (workline-gitlab-section-jobs-debug
-	   (format "downstream %s" job-name)
-	   (workline--jobid downstream-id) downstream-status downstream-jobs "   ")
-	(message "hei")
-	)
-      )
-    )
-  )
-
 
 (defun workline-gitlab-section-jobs (ref main-id main-status jobs indent)
   (magit-insert-section (branch nil)
