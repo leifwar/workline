@@ -94,6 +94,36 @@
 		   step
 		   (replace-regexp-in-string "/" "" run-name))))
 
+(defun workline-retry-job-at-point-github (step job-name resource-path run-name)
+  (if (not job-name)
+      (ghub-post
+       (format "repos%s/rerun" resource-path)
+       :host (oref repo apihost)
+       :reader 'ghub--decode-payload
+       :auth 'workline-mode
+       :callback (lambda (value _headers _status _req))
+       )))
+
+(defun workline-delete-job-at-point-github (step job-name resource-path run-name)
+  (if (not job-name)
+      (ghub-request "DELETE"
+       (format "repos%s" resource-path)
+       :host (oref repo apihost)
+       :reader 'ghub--decode-payload
+       :auth 'workline-mode
+       :callback (lambda (value _headers _status _req))
+       )))
+
+(defun workline-cancel-job-at-point-github (step job-name resource-path run-name)
+  (if (not job-name)
+      (ghub-post
+       (format "repos%s/cancel" resource-path)
+       :host (oref repo apihost)
+       :reader 'ghub--decode-payload
+       :auth 'workline-mode
+       :callback (lambda (value _headers _status _req))
+       )))
+
 (defun workline-job-trace-at-point-github (step job-name resource-path run-name)
   "Workflow job trace at point."
   (with-current-buffer (get-buffer-create (format "*Workflow:%s" resource-path))

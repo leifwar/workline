@@ -56,6 +56,13 @@
    (list (cons 'gitlab 'workline-cancel-job-at-point-gitlab)
 	 (cons 'github 'workline-cancel-job-at-point-github))))
 
+(defun workline-delete-job-at-point ()
+  "Cancel job at point."
+  (interactive)
+  (workline-section-fun-at-point
+   (list (cons 'gitlab 'workline-delete-at-point-gitlab)
+	 (cons 'github 'workline-delete-job-at-point-github))))
+
 
 (defun workline-branch-option (&optional force-branch-option)
   "Return branch point if it exists.
@@ -102,6 +109,7 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
   "R" 'workline-show-refresh
   "r" 'workline-retry-job-at-point
   "c" 'workline-cancel-job-at-point
+  "d" 'workline-delete-job-at-point
   )
 
 (define-derived-mode workline-mode magit-mode "Pipeline"
