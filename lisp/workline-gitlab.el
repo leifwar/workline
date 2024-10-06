@@ -24,27 +24,47 @@
 
 (defun workline--jobid (job-id)
   "Extract job id as integer from JOB-ID."
-  (if (string-match "gid://gitlab/Ci::\\(Build\\|Bridge\\|Pipeline\\)/\\([0-9]+\\)" job-id)
+  (if (string-match "gid://gitlab/Ci::\\(Build\\|Bridge\\|Pipeline\\|JobArtifact\\)/\\([0-9]+\\)" job-id)
       (match-string 2 job-id)))
 
-(defun workline-retry-job-at-point-gitlab (repo job-id)
-  "Retry job at point with REPO and JOB-ID."
-  (workline-post-job-at-point-gitlab repo job-id "retry"))
+(defun workline-gitlab-job-artifacts (value)
+  (seq-filter (lambda (elt) (not (string= (cdr (assoc 'fileType elt)) "TRACE"))) value))
 
-(defun workline-cancel-job-at-point-gitlab (repo job-id)
-  "Cancel job at point with REPO and JOB-ID."
-  (workline-post-job-at-point-gitlab repo job-id "cancel"))
+(defun workline-retry-job-at-point-gitlab (repo value)
+  "Retry job at point using REPO and VALUE."
+  (workline-post-job-at-point-gitlab repo value "retry"))
 
-(defun workline-post-job-at-point-gitlab (repo job-id command)
-  ""
+(defun workline-cancel-job-at-point-gitlab (repo value)
+  "Cancel job at point using REPO and VALUE."
+  (workline-post-job-at-point-gitlab repo value "cancel"))
+
+(defun workline-delete-pipeline-at-point-gitlab (repo value)
+  "Cancel pipeline at point using REPO and VALUE."
   (let ((owner (oref repo owner))
 	(name (oref repo name))
 	(apihost (oref repo apihost)))
-    (glab-post (format "projects/%s/jobs/%s/%s" (url-hexify-string (format "%s/%s" owner name)) job-id command) nil
-	       :host apihost)))
+    (glab-request "DELETE"
+     (format "projects/%s/pipeline/%s" (url-hexify-string (format "%s/%s" owner name)) (cdr (assoc 'job-id value))) nil
+     :host apihost :auth 'workline-mode)))
+
+(defun workline-delete-at-point-gitlab (repo value)
+  "Cancel job at point using REPO and VALUE."
+  (cond
+   ((magit-section-match 'job-id) (workline-post-job-at-point-gitlab repo value "erase")
+    (magit-section-match 'main-id) (workline-delete-pipeline-at-point-gitlab repo value))))
+
+(defun workline-post-job-at-point-gitlab (repo value command)
+  "Post job COMMAND at current point using REPO and VALUE."
+  (let ((owner (oref repo owner))
+	(name (oref repo name))
+	(apihost (oref repo apihost)))
+    (glab-post
+     (format "projects/%s/jobs/%s/%s" (url-hexify-string (format "%s/%s" owner name)) (cdr (assoc 'job-id value)) command) nil
+     :host apihost :auth 'workline-mode)))
 
 (defun workline-environment-variables ()
-  (if-let (env (transient-arg-value "--env=" (transient-args 'workline)))
+  "Get workline environment variables from workline transient arg."
+  (if-let (env (transient-arg-value "--env=" (transient-args 'workline-gitlab)))
       (let ((variables
 	     (mapcar (lambda (arg)
 		       (if-let ((env (split-string arg "=")))
@@ -56,7 +76,7 @@
 	    (list (cons "variables" variables))))))
 
 (defun workline-gitlab-trigger-pipeline (repo ref)
-  "Workline trigger gitlab pipeline"
+  "Workline trigger gitlab pipeline using REPO and REF."
   (let ((owner (oref repo owner))
 	(name (oref repo name))
 	(apihost (oref repo apihost)))
@@ -72,7 +92,7 @@
 
 
 (defun workline-gitlab-section-jobs (ref main-id main-status jobs indent)
-  (magit-insert-section (branch nil)
+  (magit-insert-section (main-id (list (cons 'job-id main-id) t))
     (magit-insert-heading (format "%s %s %s %s"
 				  indent
 				  (propertize ref 'font-lock-face 'magit-section-heading)
@@ -83,19 +103,26 @@
 	(let ((status (cdr (assoc 'status job)))
 	      (job-id (workline--jobid (cdr (assoc 'id job))))
 	      (job-name (cdr (assoc 'name job)))
-	      (downstream-pipeline (cdr (assoc 'downstreamPipeline job))))
+	      (downstream-pipeline (cdr (assoc 'downstreamPipeline job)))
+	      (artifacts (cdr (assoc 'nodes (cdr (assoc 'artifacts job))))))
 	  (if-let ((downstream-id (cdr (assoc 'id downstream-pipeline)))
 		   (downstream-status (cdr (assoc 'status downstream-pipeline)))
 		   (downstream-jobs (cdr (assoc 'nodes (cdr (assoc 'jobs downstream-pipeline))))))
 	      (workline-gitlab-section-jobs
 	       (format "downstream::%s" job-name)
 	       (workline--jobid downstream-id) downstream-status downstream-jobs "   ")
-	    (magit-insert-section (job-id job-id t)
+	    (magit-insert-section (job-id (list (cons 'job-id job-id) (cons 'artifacts artifacts) t))
 	      (magit-insert-heading
 		(format "%s  %s %s" indent (propertize job-id 'font-lock-face 'workline-grey)
 			(workline-format-status (format "[%-7s] %s"  status job-name) status))
-		)))))))
-  )
+		)
+	      (if (transient-arg-value "--artifacts" (transient-args 'workline-gitlab))
+		  (magit-insert-section-body
+		    (seq-doseq (artifact (workline-gitlab-job-artifacts artifacts))
+		      (magit-insert-section (artifact artifact t)
+			(magit-insert-heading
+			  (propertize (format "  %s   artifact: %s" indent (cdr (assoc 'name artifact))) 'font-lock-face 'magit-section-secondary-heading))
+			)))))))))))
 
 (defun workline-gitlab-section-pipeline (pipelines indent)
   (seq-doseq (pipeline (sort pipelines :key 'workline-get-ref))
@@ -105,7 +132,7 @@
 	  (jobs (cdr (assoc 'nodes (cdr (assoc 'jobs pipeline))))))
       (workline-gitlab-section-jobs ref main-id main-status jobs indent))))
 
-(defun workline-gitlab-section (repo sha &optional bref)
+(defun workline-gitlab-section (repo sha &optional bref ignore-sha username first last)
   ""
   (let ((host (oref repo githost))
 	(apihost (oref repo apihost))
@@ -115,8 +142,7 @@
       (let ((inhibit-read-only t)
 	    (project (cdr (assoc 'project (cdr (assoc 'data
 						      (if sha
-							  (workline-piplines-from-sha apihost project-id sha bref)
-							(workline-piplines-all apihost project-id))))))))
+							  (workline-pipelines-from-sha apihost project-id sha bref ignore-sha username first last))))))))
 	(erase-buffer)
 	(let ((pipelines (cdr (assoc 'nodes (cdr (assoc 'pipelines project))))))
 	  (if pipelines
@@ -130,66 +156,74 @@
 	      (if sha
 		  (workline-gitlab-section repo nil)))))))))
 
-;;;###autoload
-(defun workline-job-trace-at-point-gitlab (repo job-id)
-  "Pipeline job trace at point."
-  (let ((workline-buffer (format "*Pipeline:%s:%s" (oref repo githost) job-id))
-	(owner (oref repo owner))
-	(name (oref repo name)))
-    (ignore-errors (kill-buffer workline-buffer))
-    (with-current-buffer (get-buffer-create workline-buffer)
-      (erase-buffer)
-      (insert (glab-get
-	       (format "projects/%s/jobs/%s/trace" (url-hexify-string (format "%s/%s" owner name)) job-id)
-	       nil :host (oref repo apihost) :reader 'ghub--decode-payload))
-      (goto-char (point-min))
-      (while (re-search-forward "" nil t)
-        (replace-match "\n" nil nil))
-      (ansi-color-apply-on-region (point-min) (point-max))
-      (switch-to-buffer (current-buffer))
-      (view-mode))))
+(defun workline-job-trace-artifact-at-point-gitlab (repo artifact)
+  "Workline get artifacts for job at point using REPO and ARTIFACT."
+  (let ((file-path (format ".cache/artifacts/%s" (workline--jobid (cdr (assoc 'id artifact)))))
+	(name (cdr (assoc 'name artifact)))
+	(download-path (cdr (assoc 'downloadPath artifact))))
+    (if (not (file-exists-p (format "%s/%s" file-path name)))
+	(progn
+	  (make-directory file-path t)
+	  (url-copy-file (format "https://%s/%s" (oref repo githost) download-path) (format "%s/%s" file-path name) t)))
+    (find-file (format "%s/%s" file-path name))
+    (if (not (string= (cdr (assoc 'fileType artifact)) "ARCHIVE"))
+	(view-mode))))
 
 ;;;###autoload
-(defun workline-piplines-all (host projectid)
-  "Get pipelines from HOST (Gitlab) using PROJECTID."
-  (glab-graphql
-   `(query
-     (project [(fullPath $projectid ID!)]
-	    (name)
-	    (pipelines
-	     (nodes
-	      (id)
-	      (ref)
-	      (status)
-	      (jobs
-	       (nodes
-		(id)
-		(status)
-		(name)
-		(downstreamPipeline
-		 (id)
-		 (status)
-		 (jobs
-		  (nodes
-		   (id)
-		   (status)
-		   (name)
-		   )))
-		))))))
-   `((projectid . ,projectid))
-   :auth 'workline-mode
-   :host host))
+(defun workline-job-trace-at-point-gitlab (repo value)
+  "Workline job trace at point using REPO and VALUE."
+  ;; Get download-path to determine if job have TRACE. It is not used to download the
+  ;; actual trace as it is faster to use the API.
+  (if (magit-section-match 'artifact)
+      (workline-job-trace-artifact-at-point-gitlab repo value)
+    (if (magit-section-match 'job-id)
+	(let* ((job-id (cdr (assoc 'job-id value)))
+	       (workline-buffer (format "*Pipeline:%s:%s" (oref repo githost) job-id))
+	       (owner (oref repo owner))
+	       (name (oref repo name)))
+	  (ignore-errors (kill-buffer workline-buffer))
+	  (with-current-buffer (get-buffer-create workline-buffer)
+	    (erase-buffer)
+	    (insert (glab-get
+		     (format "projects/%s/jobs/%s/trace" (url-hexify-string (format "%s/%s" owner name)) job-id)
+		     nil
+		     :host (oref repo apihost)
+		     :reader 'ghub--decode-payload
+		     :auth 'workline-mode
+		     ))
+	    (goto-char (point-min))
+	    (while (re-search-forward "" nil t)
+              (replace-match "\n" nil nil))
+	    (ansi-color-apply-on-region (point-min) (point-max))
+	    (switch-to-buffer (current-buffer))
+	    (view-mode))))))
 
-(defun workline-piplines-from-sha (host projectid sha &optional ref)
-  "Get Gitlab pipelines from sha"
+(defun workline-pipeline-args (sha ref no-sha username first last)
+  "Provide pipelines (sparql) arguments.
+
+Limit to provided SHA, if not NO-SHA is given, and REF if defined"
+  (let ((args (vector)))
+    (if (and (not (null sha)) (null no-sha))
+	(setq args (vconcat args (vector '(sha $sha String!)))))
+    (if (not (null ref))
+	(setq args (vconcat args (vector '(ref $ref String!)))))
+    (if (not (null username))
+	(setq args (vconcat args (vector '(username $username String!)))))
+    (if (not (null first))
+	(setq args (vconcat args (vector '(first $first Int!)))))
+    (if (not (null last))
+	(setq args (vconcat args (vector '(last $last Int!)))))
+    (if (not (eq args (vector)))
+	(cons args ()))))
+
+(defun workline-pipelines-from-sha (host projectid &optional sha ref no-sha username first last)
+  "Get Gitlab pipelines from sha."
   (glab-graphql
    `(query
      (project [(fullPath $projectid ID!)]
 	      (name)
 	      (pipelines
-	       ,@(if (not (null ref))
-		     '([(sha $sha String!) (ref $ref String!)])
-		   '([(sha $sha String!)]))
+	       ,@(workline-pipeline-args sha ref no-sha username first last)
 	       (nodes
 		(id)
 		(ref)
@@ -199,6 +233,13 @@
 		  (id)
 		  (status)
 		  (name)
+		  (artifacts
+		   (nodes
+		    (name)
+		    (downloadPath)
+		    (fileType)
+		    (id)
+		    ))
 		  (downstreamPipeline
 		   (id)
 		   (status)
@@ -206,13 +247,27 @@
 		    (nodes
 		     (id)
 		     (name)
-		     (status))))
+		     (status)
+		     (artifacts
+		      (nodes
+		       (name)
+		       (downloadPath)
+		       (fileType)
+		       (id)
+		       )
+		      )
+		     )))
 		  ))))))
    `((projectid . ,projectid)
      (sha . ,sha)
-     (ref . ,ref))
+     (ref . ,ref)
+     (username . ,username)
+     (first . ,first)
+     (last . ,last)
+     )
+   :host host
    :auth 'workline-mode
-   :host host))
+   ))
 
 (provide 'workline-gitlab)
 

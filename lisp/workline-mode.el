@@ -63,7 +63,7 @@
 Current branch only if optional FORCE-BRANCH-OPTION is given."
   (if-let ((remote-branch (magit-remote-branch-at-point)))
       (if (or force-branch-option
-	      (transient-arg-value "--branch" (transient-args 'workline)))
+	      (transient-arg-value "--branch" (transient-args 'workline-gitlab)))
 	  (string-join (cdr (split-string remote-branch "/")) "/"))))
 
 (defun workline-show-sha ()
@@ -74,7 +74,13 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
 	  (workline-gitlab-section
 	   repo
 	   (magit-rev-parse (magit-commit-at-point))
-	   (workline-branch-option))
+	   (workline-branch-option)
+	   (transient-arg-value "--no-sha" (transient-args 'workline-gitlab))
+	   (transient-arg-value "--user=" (transient-args 'workline-gitlab))
+	   (if-let ((first (transient-arg-value "--first=" (transient-args 'workline-gitlab))))
+	       (string-to-number first))
+	   (if-let ((last (transient-arg-value "--last=" (transient-args 'workline-gitlab))))
+	       (string-to-number last)))
 	(workline-github-section repo (workline-branch-option t)))))
 
 (defun workline-trigger-pipeline ()
@@ -103,17 +109,36 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
   :group 'workline
 )
 
-(transient-define-prefix workline ()
+(transient-define-prefix workline-gitlab ()
   ["Arguments"
    ("a" "Show all branches (with history)" "--all")
    ("e" "Environment variables (for a trigger)" "--env=")
-   ("b" "Current branch only" "--branch")
+   ("b" "Current branch" "--branch")
+   ("u" "User" "--user=")
+   ("l" "Last n pipelines" "--last=")
+   ("f" "First n pipelines" "--first=")
+   ("i" "Ignore sha" "--no-sha")
+   ("A" "Show artifacts (gitlab)" "--artifacts")
    ]
   ["Actions"
-   ("r" "Get pipeline(s) for current SHA" workline-show-sha)
+   ("r" "Get pipeline(s)" workline-show-sha)
    ("t" "Trigger a pipeline" workline-trigger-pipeline)
    ]
   )
+
+(transient-define-prefix workline-github ()
+  ["Actions"
+   ("r" "Get pipeline(s)" workline-show-sha)
+   ("t" "Trigger a pipeline" workline-trigger-pipeline)
+   ]
+  )
+
+(defun workline ()
+  (interactive)
+  (if-let ((repo (forge-get-repository :valid?)))
+      (cond ((forge-gitlab-repository--eieio-childp repo) (workline-gitlab))
+	    ((forge-github-repository--eieio-childp repo) (workline-github))
+	    )))
 
 
 ;;; workline-mode.el ends here
