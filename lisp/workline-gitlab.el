@@ -20,6 +20,7 @@
 
 (require 'glab)
 (require 'magit-mode)
+(require 'workline-mode)
 
 (defun workline--jobid (job-id)
   "Extract job id as integer from JOB-ID."
@@ -61,6 +62,7 @@
 	(apihost (oref repo apihost)))
     (glab-post (format "projects/%s/pipeline?ref=%s" (url-hexify-string (format "%s/%s" owner name)) ref) nil
 	       :host apihost
+	       :auth 'workline-mode
 	       :payload (workline-environment-variables)
 	       :callback (lambda (value _headers _status _req))
 	       )))
@@ -175,7 +177,7 @@
 		   )))
 		))))))
    `((projectid . ,projectid))
-   :auth 'forge
+   :auth 'workline-mode
    :host host))
 
 (defun workline-piplines-from-sha (host projectid sha &optional ref)
@@ -209,7 +211,7 @@
    `((projectid . ,projectid)
      (sha . ,sha)
      (ref . ,ref))
-   :auth 'forge
+   :auth 'workline-mode
    :host host))
 
 (provide 'workline-gitlab)

@@ -19,6 +19,7 @@
 ;;; Code:
 
 (require 'magit-mode)
+(require 'workline-mode)
 
 (defun workline-github-nodes (data)
   (cdr (assoc 'nodes (cdr (assoc 'checkSuites (cdr (assoc 'target (cdr (assoc 'ref (cdr (assoc 'repository (cdr (assoc 'data data)))))))))))))
@@ -46,6 +47,7 @@
 		    (ghub-get (format "repos%s/logs" resource-path) nil
 			      :host (oref repo apihost)
 			      :reader 'ghub--decode-payload
+			      :auth 'workline-mode
 			      :callback (lambda (value _headers _status _req)
 					  (let ((fname (format "logs/log%s.zip" (replace-regexp-in-string "/" "-" resource-path))))
 					    (with-temp-file fname
@@ -140,7 +142,7 @@
    `((owner . ,owner)
      (name . ,name)
      (ref . ,ref))
-   :auth 'forge
+   :auth 'workline-mode
    :host host
    )
   )

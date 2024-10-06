@@ -22,6 +22,8 @@
 (require 'magit-mode)
 (require 'ansi-color)
 
+(provide 'workline-mode)
+
 (require 'workline-core)
 (require 'workline-github)
 (require 'workline-gitlab)
@@ -32,7 +34,6 @@
   (workline-section-apply
    (list (cons 'gitlab 'workline-gitlab-section)
 	 (cons 'github 'workline-github-section))))
-
 
 (defun workline-job-trace-at-point ()
   "Trace job at point."
@@ -114,7 +115,5 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
    ]
   )
 
-;forge-gitlab-repository--eieio-childp
-(provide 'workline-mode)
 
 ;;; workline-mode.el ends here
