@@ -103,6 +103,7 @@
 	(let ((status (cdr (assoc 'status job)))
 	      (job-id (workline--jobid (cdr (assoc 'id job))))
 	      (job-name (cdr (assoc 'name job)))
+	      (full-path (cdr (assoc 'fullPath (cdr (assoc 'project job)))))
 	      (downstream-pipeline (cdr (assoc 'downstreamPipeline job)))
 	      (artifacts (cdr (assoc 'nodes (cdr (assoc 'artifacts job))))))
 	  (if-let ((downstream-id (cdr (assoc 'id downstream-pipeline)))
@@ -111,7 +112,7 @@
 	      (workline-gitlab-section-jobs
 	       (format "downstream::%s" job-name)
 	       (workline--jobid downstream-id) downstream-status downstream-jobs "   ")
-	    (magit-insert-section (job-id (list (cons 'job-id job-id) (cons 'artifacts artifacts) t))
+	    (magit-insert-section (job-id (list (cons 'job-id job-id) (cons 'full-path full-path) (cons 'artifacts artifacts) t))
 	      (magit-insert-heading
 		(format "%s  %s %s" indent (propertize job-id 'font-lock-face 'workline-grey)
 			(workline-format-status (format "[%-7s] %s"  status job-name) status))
@@ -179,13 +180,12 @@
     (if (magit-section-match 'job-id)
 	(let* ((job-id (cdr (assoc 'job-id value)))
 	       (workline-buffer (format "*Pipeline:%s:%s" (oref repo githost) job-id))
-	       (owner (oref repo owner))
-	       (name (oref repo name)))
+	       (full-path (cdr (assoc 'full-path value))))
 	  (ignore-errors (kill-buffer workline-buffer))
 	  (with-current-buffer (get-buffer-create workline-buffer)
 	    (erase-buffer)
 	    (insert (glab-get
-		     (format "projects/%s/jobs/%s/trace" (url-hexify-string (format "%s/%s" owner name)) job-id)
+		     (format "projects/%s/jobs/%s/trace" (url-hexify-string full-path) job-id)
 		     nil
 		     :host (oref repo apihost)
 		     :reader 'ghub--decode-payload
@@ -233,6 +233,9 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
 		  (id)
 		  (status)
 		  (name)
+		  (project
+		   (fullPath)
+		   )
 		  (artifacts
 		   (nodes
 		    (name)
@@ -248,6 +251,9 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
 		     (id)
 		     (name)
 		     (status)
+		     (project
+		      (fullPath)
+		      )
 		     (artifacts
 		      (nodes
 		       (name)
