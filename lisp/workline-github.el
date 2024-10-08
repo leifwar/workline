@@ -61,8 +61,10 @@
 		    (magit-insert-section-body
 		      (seq-doseq (run (cdr (assoc 'nodes (cdr (assoc 'checkRuns node)))))
 			(let ((run-name (cdr (assoc 'name run)))
-			      (run-conclusion (cdr (assoc 'conclusion run))))
-			  (magit-insert-section (workline_branch (list "0" nil resource-path run-name) t)
+			      (run-conclusion (cdr (assoc 'conclusion run)))
+			      (run-resource-path (cdr (assoc 'resourcePath run)))
+			      )
+			  (magit-insert-section (workline_branch (list "0" nil resource-path run-name repo) t)
 			    (magit-insert-heading
 			      (format "  - %s %s"
 				      (propertize run-name 'font-lock-face 'magit-section-heading)
@@ -72,7 +74,7 @@
 				(let ((step-name (cdr (assoc 'name step)))
 				      (step-conclusion (cdr (assoc 'conclusion step)))
 				      (step-number (cdr (assoc 'number step))))
-				  (magit-insert-section (step (list step-number step-name resource-path run-name) t)
+				  (magit-insert-section (step (list step-number step-name run-resource-path run-name repo) t)
 				    (magit-insert-heading
 				      (format "   %s : %s %s"
 					      (propertize (format "%2d" step-number) 'font-lock-face 'workline-grey)
@@ -81,7 +83,7 @@
 					      ))))))))))))))))
       (pop-to-buffer (current-buffer)))))
 
-(defun workline-github-log-fname (step job-name resource-path run-name)
+(defun workline-github-log-fname (step job-name resource-path run-name repo)
   ""
   (if job-name
       (format "logs%s/%s/%s_%s.txt"
@@ -94,7 +96,7 @@
 		   step
 		   (replace-regexp-in-string "/" "" run-name))))
 
-(defun workline-retry-job-at-point-github (step job-name resource-path run-name)
+(defun workline-retry-job-at-point-github (step job-name resource-path run-name repo)
   (if (not job-name)
       (ghub-post
        (format "repos%s/rerun" resource-path)
@@ -104,7 +106,7 @@
        :callback (lambda (value _headers _status _req))
        )))
 
-(defun workline-delete-job-at-point-github (step job-name resource-path run-name)
+(defun workline-delete-job-at-point-github (step job-name resource-path run-name repo)
   (if (not job-name)
       (ghub-request "DELETE"
        (format "repos%s" resource-path)
@@ -114,7 +116,7 @@
        :callback (lambda (value _headers _status _req))
        )))
 
-(defun workline-cancel-job-at-point-github (step job-name resource-path run-name)
+(defun workline-cancel-job-at-point-github (step job-name resource-path run-name repo)
   (if (not job-name)
       (ghub-post
        (format "repos%s/cancel" resource-path)
@@ -124,7 +126,7 @@
        :callback (lambda (value _headers _status _req))
        )))
 
-(defun workline-job-trace-at-point-github (step job-name resource-path run-name)
+(defun workline-job-trace-at-point-github (step job-name resource-path run-name repo)
   "Workflow job trace at point."
   (with-current-buffer (get-buffer-create (format "*Workflow:%s" resource-path))
     (erase-buffer)
@@ -163,6 +165,7 @@
 	     (status)
 	     (conclusion)
 	     (detailsUrl)
+	     (resourcePath)
 	     (steps
 	      [(first 15)]
 	      (nodes
