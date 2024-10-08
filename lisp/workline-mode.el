@@ -35,6 +35,12 @@
    (list (cons 'gitlab 'workline-gitlab-section)
 	 (cons 'github 'workline-github-section))))
 
+(defun workline-web-job-trace-at-point ()
+  (interactive)
+  (workline-section-fun-at-point
+   (list (cons 'gitlab 'workline-job-web-trace-at-point-gitlab)
+	 (cons 'github 'workline-job-web-trace-at-point-github))))
+
 (defun workline-job-trace-at-point ()
   "Trace job at point."
   (interactive)
@@ -105,6 +111,7 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
   :doc "Keymap for pipeline"
   :parent magit-section-mode-map
   "RET" 'workline-job-trace-at-point
+  "C-<return>" 'workline-web-job-trace-at-point
   "v" 'workline-job-trace-at-point
   "R" 'workline-show-refresh
   "r" 'workline-retry-job-at-point

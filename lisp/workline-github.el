@@ -126,6 +126,11 @@
        :callback (lambda (value _headers _status _req))
        )))
 
+(defun workline-job-web-trace-at-point-github (step job-name resource-path run-name repo)
+  ""
+  (if resource-path
+      (browse-url (format "https://%s%s" (oref repo githost) resource-path))))
+
 (defun workline-job-trace-at-point-github (step job-name resource-path run-name repo)
   "Workflow job trace at point."
   (with-current-buffer (get-buffer-create (format "*Workflow:%s" resource-path))

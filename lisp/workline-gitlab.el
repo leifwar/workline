@@ -170,6 +170,18 @@
     (if (not (string= (cdr (assoc 'fileType artifact)) "ARCHIVE"))
 	(view-mode))))
 
+(defun workline-job-web-trace-at-point-gitlab (repo value)
+  "Workline job web trace at point using REPO and VALUE."
+  (if (magit-section-match 'artifact)
+      (workline-job-trace-artifact-at-point-gitlab repo value)
+    (if-let ((job-id (cdr (assoc 'job-id value)))
+	     (host (oref repo githost))
+	     (owner (oref repo owner))
+	     (name (oref repo name)))
+	(cond ((magit-section-match 'job-id) (browse-url (format "https://%s/%s/%s/-/jobs/%s" host owner name job-id)))
+	      ((magit-section-match 'main-id) (browse-url (format "https://%s/%s/%s/-/pipelines/%s" host owner name job-id)))
+	      ))))
+
 ;;;###autoload
 (defun workline-job-trace-at-point-gitlab (repo value)
   "Workline job trace at point using REPO and VALUE."
