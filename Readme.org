@@ -35,7 +35,10 @@ Possibly add key binding binding for workline as given in the example below.
 
 - In a workline section showing the status for all workflow/pipelines the following keys are defined:
 
-  - R :: refresh workline section with updated status
-  - <return> or v :: Show the trace of current job
-  - c :: Cancel a running job
-  - r :: Rerun a job
+  | key           | action                                       |
+  |---------------+----------------------------------------------|
+  | R             | Refresh workline section with updated status |
+  | <return> or v | Show the trace of current job                |
+  | C-<return>    | Open trace of current job in web browser     |
+  | c             | Cancel a running job                         |
+  | r             | Rerun a job                                  |
