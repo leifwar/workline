@@ -74,7 +74,7 @@
 				(let ((step-name (cdr (assoc 'name step)))
 				      (step-conclusion (cdr (assoc 'conclusion step)))
 				      (step-number (cdr (assoc 'number step))))
-				  (magit-insert-section (step (list step-number step-name run-resource-path run-name repo) t)
+				  (magit-insert-section (step (list step-number step-name resource-path run-name repo) t)
 				    (magit-insert-heading
 				      (format "   %s : %s %s"
 					      (propertize (format "%2d" step-number) 'font-lock-face 'workline-grey)
@@ -135,7 +135,7 @@
   "Workflow job trace at point."
   (with-current-buffer (get-buffer-create (format "*Workflow:%s" resource-path))
     (erase-buffer)
-    (insert-file-contents (workline-github-log-fname step job-name resource-path run-name))
+    (insert-file-contents (workline-github-log-fname step job-name resource-path run-name repo))
     (goto-char (point-min))
     (while (re-search-forward "" nil t)
       (replace-match "\n" nil nil))
