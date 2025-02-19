@@ -24,8 +24,8 @@
 
 (defun workline--jobid (job-id)
   "Extract job id as integer from JOB-ID."
-  (if (string-match "gid://gitlab/Ci::\\(Build\\|Bridge\\|Pipeline\\|JobArtifact\\)/\\([0-9]+\\)" job-id)
-      (match-string 2 job-id)))
+  (if (string-match "gid://gitlab/.*/\\([0-9]+\\)$" job-id)
+      (match-string 1 job-id)))
 
 (defun workline-gitlab-job-artifacts (value)
   (seq-filter (lambda (elt) (not (string= (cdr (assoc 'fileType elt)) "TRACE"))) value))
