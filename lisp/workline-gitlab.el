@@ -199,13 +199,12 @@
   (let ((file-path (format ".cache/artifacts/%s" (workline--jobid (cdr (assoc 'id artifact)))))
         (name (cdr (assoc 'name artifact)))
         (download-path (cdr (assoc 'downloadPath artifact))))
-    (if (not (file-exists-p (format "%s/%s" file-path name)))
-        (progn
-          (make-directory file-path t)
-          (url-copy-file
-           (format "https://%s/%s" (oref repo githost) download-path)
-           (format "%s/%s" file-path name)
-           t)))
+    (unless (file-exists-p (format "%s/%s" file-path name))
+      (make-directory file-path t)
+      (url-copy-file
+       (format "https://%s/%s" (oref repo githost) download-path)
+       (format "%s/%s" file-path name)
+       t))
     (find-file (format "%s/%s" file-path name))
     (if (not (string= (cdr (assoc 'fileType artifact)) "ARCHIVE"))
         (view-mode))))
