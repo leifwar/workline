@@ -21,7 +21,8 @@
 
 (require 'magit-mode)
 (require 'ansi-color)
-
+(require 'forge-gitlab)
+(require 'forge-github)
 (provide 'workline-mode)
 
 (require 'workline-core)

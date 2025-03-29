@@ -22,6 +22,7 @@
 (require 'workline-mode)
 
 (defun workline-github-nodes (data)
+  "Extract the check suite results from sparql query DATA."
   (cdr
    (assoc
     'nodes
