@@ -223,6 +223,26 @@
        ((magit-section-match 'main-id)
         (browse-url (format "https://%s/%s/%s/-/pipelines/%s" host owner name job-id)))))))
 
+(defun workline-build-trace-buffer (workline-buffer host path)
+  ""
+  (ignore-errors
+    (kill-buffer workline-buffer))
+  (with-current-buffer (get-buffer-create workline-buffer)
+    (erase-buffer)
+    (insert (glab-get path nil :host host :reader 'ghub--decode-payload :auth 'workline-mode))
+    (goto-char (point-min))
+    (while (re-search-forward "" nil t)
+      (replace-match "\n" nil nil))
+    (ansi-color-apply-on-region (point-min) (point-max))
+    (switch-to-buffer (current-buffer))
+    (view-mode)
+    (goto-char (point-max))
+    (local-set-key
+     (kbd "R")
+     (lambda ()
+       (interactive)
+       (workline-build-trace-buffer workline-buffer host path)))))
+
 ;;;###autoload
 (defun workline-job-trace-at-point-gitlab (repo value)
   "Workline job trace at point using REPO and VALUE."
@@ -234,23 +254,10 @@
         (let* ((job-id (cdr (assoc 'job-id value)))
                (workline-buffer (format "*Pipeline:%s:%s" (oref repo githost) job-id))
                (full-path (cdr (assoc 'full-path value))))
-          (ignore-errors
-            (kill-buffer workline-buffer))
-          (with-current-buffer (get-buffer-create workline-buffer)
-            (erase-buffer)
-            (insert
-             (glab-get
-              (format "projects/%s/jobs/%s/trace" (url-hexify-string full-path) job-id)
-              nil
-              :host (oref repo apihost)
-              :reader 'ghub--decode-payload
-              :auth 'workline-mode))
-            (goto-char (point-min))
-            (while (re-search-forward "" nil t)
-              (replace-match "\n" nil nil))
-            (ansi-color-apply-on-region (point-min) (point-max))
-            (switch-to-buffer (current-buffer))
-            (view-mode))))))
+          (workline-build-trace-buffer
+           workline-buffer
+           (oref repo apihost)
+           (format "projects/%s/jobs/%s/trace" (url-hexify-string full-path) job-id))))))
 
 (defun workline-pipeline-args (sha ref no-sha username first last)
   "Provide pipelines (sparql) arguments.
