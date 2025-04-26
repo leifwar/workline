@@ -61,6 +61,18 @@
   "Face for highlighting the current section."
   :group 'workline-faces)
 
+(defface workline-warning
+  `((((class color) (background light))
+     ,@
+     (and (>= emacs-major-version 27) '(:extend t))
+     :foreground "DarkOrange")
+    (((class color) (background dark))
+     ,@
+     (and (>= emacs-major-version 27) '(:extend t))
+     :foreground "DarkOrange"))
+  "Face for highlighting the current section."
+  :group 'workline-faces)
+
 (defface workline-grey
   `((((class color) (background light))
      ,@
@@ -86,6 +98,8 @@
                 'workline-failed)
                ((string= status "RUNNING")
                 'workline-running)
+               ((string= status "WARNING")
+                'workline-warning)
                (t
                 'workline-grey))))
 

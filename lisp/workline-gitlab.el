@@ -105,6 +105,11 @@
 (defun workline-get-ref (pipeline)
   (cdr (assoc 'ref pipeline)))
 
+(defun workline-gitlab-check-warning (status allow-failure)
+  "Change STATUS to WARNING if FAILED and ALLOW-FAILURE."
+  (if (and allow-failure  (string= status "FAILED"))
+      "WARNING"
+    status))
 
 (defun workline-gitlab-section-jobs (ref main-id main-status jobs indent)
   (magit-insert-section
@@ -117,14 +122,19 @@
             (workline-format-status main-status main-status)))
    (magit-insert-section-body
     (seq-doseq (job jobs)
-      (let ((status (cdr (assoc 'status job)))
+      (let ((status
+             (workline-gitlab-check-warning
+              (cdr (assoc 'status job)) (cdr (assoc 'allowFailure job))))
             (job-id (workline--jobid (cdr (assoc 'id job))))
             (job-name (cdr (assoc 'name job)))
             (full-path (cdr (assoc 'fullPath (cdr (assoc 'project job)))))
             (downstream-pipeline (cdr (assoc 'downstreamPipeline job)))
             (artifacts (cdr (assoc 'nodes (cdr (assoc 'artifacts job))))))
         (if-let ((downstream-id (cdr (assoc 'id downstream-pipeline)))
-                 (downstream-status (cdr (assoc 'status downstream-pipeline)))
+                 (downstream-status
+                  (workline-gitlab-check-warning
+                   (cdr (assoc 'status downstream-pipeline))
+                   (cdr (assoc 'allowFailure downstream-pipeline))))
                  (downstream-jobs (cdr (assoc 'nodes (cdr (assoc 'jobs downstream-pipeline))))))
           (workline-gitlab-section-jobs
            (format "downstream::%s" job-name)
@@ -291,6 +301,7 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
          (nodes
           (id)
           (status)
+          (allowFailure)
           (name)
           (project (fullPath))
           (artifacts (nodes (name) (downloadPath) (fileType) (id)))
@@ -301,6 +312,7 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
              (id)
              (name)
              (status)
+             (allowFailure)
              (project (fullPath))
              (artifacts (nodes (name) (downloadPath) (fileType) (id))))))))))))
    `((projectid . ,projectid)
