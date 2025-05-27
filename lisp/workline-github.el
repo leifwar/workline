@@ -104,7 +104,10 @@
                              (propertize
                               step-name
                               'font-lock-face 'magit-section-secondary-heading)))))))))))))))))
-      (pop-to-buffer (current-buffer)))))
+      (pop-to-buffer (current-buffer))
+      (let ((magit-section-cache-visibility nil))
+        (magit-section-show magit-root-section)))))
+
 
 (defun workline-github-log-fname (step job-name resource-path run-name repo)
   ""

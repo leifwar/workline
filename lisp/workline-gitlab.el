@@ -202,7 +202,9 @@
             (progn
               (kill-buffer (current-buffer))
               (if sha
-                  (workline-gitlab-section repo nil)))))))))
+                  (workline-gitlab-section repo nil))))))
+      (let ((magit-section-cache-visibility nil))
+	(magit-section-show magit-root-section)))))
 
 (defun workline-job-trace-artifact-at-point-gitlab (repo artifact)
   "Workline get artifacts for job at point using REPO and ARTIFACT."
