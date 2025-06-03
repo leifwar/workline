@@ -107,65 +107,81 @@
 
 (defun workline-gitlab-check-warning (status allow-failure)
   "Change STATUS to WARNING if FAILED and ALLOW-FAILURE."
-  (if (and allow-failure  (string= status "FAILED"))
+  (if (and allow-failure (string= status "FAILED"))
       "WARNING"
     status))
 
-(defun workline-gitlab-section-jobs (ref main-id main-status jobs indent)
+(defun workline-gitlab-section-jobs (ref main-id main-status stages indent)
   (magit-insert-section
-   (main-id (list (cons 'job-id main-id) t))
+   (main-id (list (cons 'job-id main-id) t) (string-equal main-status "SUCCESS"))
    (magit-insert-heading
     (format "%s %s %s %s"
             indent
             (propertize ref 'font-lock-face 'magit-section-heading)
             (propertize main-id 'font-lock-face 'workline-grey)
-            (workline-format-status main-status main-status)))
+            (workline-format-status (downcase main-status) main-status)))
    (magit-insert-section-body
-    (seq-doseq (job jobs)
-      (let ((status
-             (workline-gitlab-check-warning
-              (cdr (assoc 'status job)) (cdr (assoc 'allowFailure job))))
-            (job-id (workline--jobid (cdr (assoc 'id job))))
-            (job-name (cdr (assoc 'name job)))
-            (full-path (cdr (assoc 'fullPath (cdr (assoc 'project job)))))
-            (downstream-pipeline (cdr (assoc 'downstreamPipeline job)))
-            (artifacts (cdr (assoc 'nodes (cdr (assoc 'artifacts job))))))
-        (if-let ((downstream-id (cdr (assoc 'id downstream-pipeline)))
-                 (downstream-status
-                  (workline-gitlab-check-warning
-                   (cdr (assoc 'status downstream-pipeline))
-                   (cdr (assoc 'allowFailure downstream-pipeline))))
-                 (downstream-jobs (cdr (assoc 'nodes (cdr (assoc 'jobs downstream-pipeline))))))
-          (workline-gitlab-section-jobs
-           (format "downstream::%s" job-name)
-           (workline--jobid downstream-id)
-           downstream-status
-           downstream-jobs
-           "   ")
-          (magit-insert-section
-           (job-id
-            (list (cons 'job-id job-id) (cons 'full-path full-path) (cons 'artifacts artifacts) t))
-           (magit-insert-heading
-            (format "%s  %s %s"
-                    indent
-                    (propertize job-id 'font-lock-face 'workline-grey)
-                    (workline-format-status (format "[%-7s] %s" status job-name) status)))
-           (if (transient-arg-value "--artifacts" (transient-args 'workline-gitlab))
-               (magit-insert-section-body
-                (seq-doseq (artifact (workline-gitlab-job-artifacts artifacts))
-                  (magit-insert-section
-                   (artifact artifact t)
-                   (magit-insert-heading
-                    (propertize (format "  %s   artifact: %s" indent (cdr (assoc 'name artifact)))
-                                'font-lock-face 'magit-section-secondary-heading)))))))))))))
+    (seq-doseq (stage stages)
+      (let ((stage-id (cdr (assoc 'id stage)))
+            (stage-name (cdr (assoc 'name stage)))
+            (stage-status (cdr (assoc 'status stage))))
+        (magit-insert-section
+         (stage-id (list (cons 'stage-id stage-id) t) (string-equal stage-status "success"))
+         (magit-insert-heading
+          (format " %s %s %s"
+                  indent
+                  (propertize stage-name 'font-lock-face 'workline-stage)
+                  (workline-format-status stage-status (upcase stage-status))))
+         (magit-insert-section-body
+          (seq-doseq (job (cdr (assoc 'nodes (cdr (assoc 'jobs stage)))))
+            (let ((status
+                   (workline-gitlab-check-warning
+                    (cdr (assoc 'status job)) (cdr (assoc 'allowFailure job))))
+                  (job-id (workline--jobid (cdr (assoc 'id job))))
+                  (job-name (cdr (assoc 'name job)))
+                  (full-path (cdr (assoc 'fullPath (cdr (assoc 'project job)))))
+                  (downstream-pipeline (cdr (assoc 'downstreamPipeline job)))
+                  (artifacts (cdr (assoc 'nodes (cdr (assoc 'artifacts job))))))
+              (if-let ((downstream-id (cdr (assoc 'id downstream-pipeline)))
+                       (downstream-status
+                        (workline-gitlab-check-warning
+                         (cdr (assoc 'status downstream-pipeline))
+                         (cdr (assoc 'allowFailure downstream-pipeline))))
+                       (downstream-stages
+                        (cdr (assoc 'nodes (cdr (assoc 'stages downstream-pipeline))))))
+                (workline-gitlab-section-jobs
+                 (format "downstream::%s" job-name)
+                 (workline--jobid downstream-id)
+                 downstream-status
+                 downstream-stages
+                 "   ")
+                (magit-insert-section
+                 (job-id
+                  (list
+                   (cons 'job-id job-id) (cons 'full-path full-path) (cons 'artifacts artifacts) t))
+                 (magit-insert-heading
+                  (format "%s   %s %s"
+                          indent
+                          (propertize job-id 'font-lock-face 'workline-grey)
+                          (workline-format-status (format "[%-7s] %s" status job-name) status)))
+                 (if (transient-arg-value "--artifacts" (transient-args 'workline-gitlab))
+                     (magit-insert-section-body
+                      (seq-doseq (artifact (workline-gitlab-job-artifacts artifacts))
+                        (magit-insert-section
+                         (artifact artifact t)
+                         (magit-insert-heading
+                          (propertize
+                           (format "  %s   artifact: %s" indent (cdr (assoc 'name artifact)))
+                           'font-lock-face 'magit-section-secondary-heading)))))))))))))))))
+
 
 (defun workline-gitlab-section-pipeline (pipelines indent)
   (seq-doseq (pipeline (sort pipelines :key 'workline-get-ref))
     (let ((ref (workline-get-ref pipeline))
           (main-id (workline--jobid (cdr (assoc 'id pipeline))))
           (main-status (cdr (assoc 'status pipeline)))
-          (jobs (cdr (assoc 'nodes (cdr (assoc 'jobs pipeline))))))
-      (workline-gitlab-section-jobs ref main-id main-status jobs indent))))
+          (stages (cdr (assoc 'nodes (cdr (assoc 'stages pipeline))))))
+      (workline-gitlab-section-jobs ref main-id main-status stages indent))))
 
 (defun workline-gitlab-section (repo sha &optional bref ignore-sha username first last)
   ""
@@ -204,7 +220,7 @@
               (if sha
                   (workline-gitlab-section repo nil))))))
       (let ((magit-section-cache-visibility nil))
-	(magit-section-show magit-root-section)))))
+        (magit-section-show magit-root-section)))))
 
 (defun workline-job-trace-artifact-at-point-gitlab (repo artifact)
   "Workline get artifacts for job at point using REPO and ARTIFACT."
@@ -299,24 +315,25 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
        ,@ (workline-pipeline-args sha ref no-sha username first last)
        (nodes
         (id) (ref) (status)
-        (jobs
+        (stages
          (nodes
-          (id)
-          (status)
-          (allowFailure)
-          (name)
-          (project (fullPath))
-          (artifacts (nodes (name) (downloadPath) (fileType) (id)))
-          (downstreamPipeline
-           (id) (status)
-           (jobs
-            (nodes
-             (id)
-             (name)
-             (status)
-             (allowFailure)
-             (project (fullPath))
-             (artifacts (nodes (name) (downloadPath) (fileType) (id))))))))))))
+          (name) (id) (status)
+          (jobs
+           (nodes
+            (id)
+            (status)
+            (allowFailure)
+            (name)
+            (project (fullPath))
+            (artifacts (nodes (name) (downloadPath) (fileType) (id)))
+            (downstreamPipeline
+             (id) (status)
+             (stages
+              (nodes
+               (name)
+               (id)
+	       (status)
+               (jobs (nodes (id) (name) (status) (allowFailure) (project (fullPath)))))))))))))))
    `((projectid . ,projectid)
      (sha . ,sha)
      (ref . ,ref)

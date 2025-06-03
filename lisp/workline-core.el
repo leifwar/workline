@@ -19,11 +19,24 @@
 ;;; Code:
 
 (require 'magit-mode)
+(require 'forge)
 
 (defgroup workline-faces nil
   "Faces used by Pipeline."
   :group 'workline
   :group 'faces)
+
+(defface workline-stage
+  `((((class color) (background light))
+     ,@
+     (and (>= emacs-major-version 27) '(:extend t))
+     :foreground "DarkKhaki")
+    (((class color) (background dark))
+     ,@
+     (and (>= emacs-major-version 27) '(:extend t))
+     :foreground "DarkKhaki"))
+  "Face for highlighting the current section."
+  :group 'workline-faces)
 
 (defface workline-success
   `((((class color) (background light))
