@@ -81,8 +81,7 @@
                (magit-insert-section-body
                 (seq-doseq (run (cdr (assoc 'nodes (cdr (assoc 'checkRuns node)))))
                   (let ((run-name (cdr (assoc 'name run)))
-                        (run-conclusion (cdr (assoc 'conclusion run)))
-                        (run-resource-path (cdr (assoc 'resourcePath run))))
+                        (run-conclusion (cdr (assoc 'conclusion run))))
                     (magit-insert-section
                      (workline_branch (list "0" nil resource-path run-name repo) t)
                      (magit-insert-heading
@@ -109,7 +108,7 @@
         (magit-section-show magit-root-section)))))
 
 
-(defun workline-github-log-fname (step job-name resource-path run-name repo)
+(defun workline-github-log-fname (step job-name resource-path run-name)
   ""
   (if job-name
       (format "logs%s/%s/%s_%s.txt"
@@ -156,7 +155,7 @@
   "Workflow job trace at point."
   (with-current-buffer (get-buffer-create (format "*Workflow:%s" resource-path))
     (erase-buffer)
-    (insert-file-contents (workline-github-log-fname step job-name resource-path run-name repo))
+    (insert-file-contents (workline-github-log-fname step job-name resource-path run-name))
     (goto-char (point-min))
     (while (re-search-forward "" nil t)
       (replace-match "\n" nil nil))
