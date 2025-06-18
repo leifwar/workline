@@ -118,16 +118,16 @@
               (replace-regexp-in-string "/" "" job-name))
     (format "logs%s/%s_%s.txt" resource-path step (replace-regexp-in-string "/" "" run-name))))
 
-(defun workline-retry-job-at-point-github (step job-name resource-path run-name repo)
+(defun workline-retry-job-at-point-github (_step job-name resource-path _run-name repo)
   (if (not job-name)
       (ghub-post
        (format "repos%s/rerun" resource-path)
        :host (oref repo apihost)
        :reader 'ghub--decode-payload
        :auth 'workline-mode
-       :callback (lambda (value _headers _status _req)))))
+       :callback (lambda (_value _headers _status _req)))))
 
-(defun workline-delete-job-at-point-github (step job-name resource-path run-name repo)
+(defun workline-delete-job-at-point-github (_step job-name resource-path _run-name repo)
   (if (not job-name)
       (ghub-request
        "DELETE"
@@ -135,18 +135,18 @@
        :host (oref repo apihost)
        :reader 'ghub--decode-payload
        :auth 'workline-mode
-       :callback (lambda (value _headers _status _req)))))
+       :callback (lambda (_value _headers _status _req)))))
 
-(defun workline-cancel-job-at-point-github (step job-name resource-path run-name repo)
+(defun workline-cancel-job-at-point-github (_step job-name resource-path _run-name repo)
   (if (not job-name)
       (ghub-post
        (format "repos%s/cancel" resource-path)
        :host (oref repo apihost)
        :reader 'ghub--decode-payload
        :auth 'workline-mode
-       :callback (lambda (value _headers _status _req)))))
+       :callback (lambda (_value _headers _status _req)))))
 
-(defun workline-job-web-trace-at-point-github (step job-name resource-path run-name repo)
+(defun workline-job-web-trace-at-point-github (_step _job-name resource-path _run-name repo)
   ""
   (if resource-path
       (browse-url (format "https://%s%s" (oref repo githost) resource-path))))

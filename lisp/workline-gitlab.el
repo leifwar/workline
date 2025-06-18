@@ -100,7 +100,7 @@
      :host apihost
      :auth 'workline-mode
      :payload (workline-environment-variables)
-     :callback (lambda (value _headers _status _req)))))
+     :callback (lambda (_value _headers _status _req)))))
 
 (defun workline-get-ref (pipeline)
   (cdr (assoc 'ref pipeline)))
