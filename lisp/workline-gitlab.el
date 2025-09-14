@@ -44,20 +44,22 @@
         (apihost (oref repo apihost)))
     (ghub-request
      "DELETE"
-     (format "projects/%s/pipeline/%s"
+     (format "projects/%s/pipelines/%s"
              (url-hexify-string (format "%s/%s" owner name))
              (cdr (assoc 'job-id value)))
      nil
      :forge 'gitlab
      :host apihost
-     :auth 'workline-mode)))
+     :auth 'workline-mode
+     :callback (lambda (_value _headers _status _req) )
+     )))
 
 (defun workline-delete-at-point-gitlab (repo value)
   "Cancel job at point using REPO and VALUE."
   (cond
    ((magit-section-match 'job-id)
-    (workline-post-job-at-point-gitlab repo value "erase")
-    (magit-section-match 'main-id)
+    (workline-post-job-at-point-gitlab repo value "erase"))
+   ((magit-section-match 'main-id)
     (workline-delete-pipeline-at-point-gitlab repo value))))
 
 (defun workline-post-job-at-point-gitlab (repo value command)
