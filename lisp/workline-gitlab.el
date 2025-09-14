@@ -263,7 +263,15 @@
     (kill-buffer workline-buffer))
   (with-current-buffer (get-buffer-create workline-buffer)
     (erase-buffer)
-    (insert (ghub-request "GET" path nil :forge 'gitlab :host host :reader 'ghub--decode-payload :auth 'workline-mode))
+    (insert
+     (ghub-request
+      "GET"
+      path
+      nil
+      :forge 'gitlab
+      :host host
+      :reader 'ghub--decode-payload
+      :auth 'workline-mode))
     (goto-char (point-min))
     (while (re-search-forward "" nil t)
       (replace-match "\n" nil nil))
@@ -338,7 +346,7 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
               (nodes
                (name)
                (id)
-	       (status)
+               (status)
                (jobs (nodes (id) (name) (status) (allowFailure) (project (fullPath)))))))))))))))
    `((projectid . ,projectid)
      (sha . ,sha)
