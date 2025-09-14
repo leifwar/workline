@@ -18,7 +18,6 @@
 ;;; Commentary:
 ;;; Code:
 
-(require 'glab)
 (require 'magit-mode)
 (require 'workline-mode)
 
@@ -43,12 +42,13 @@
   (let ((owner (oref repo owner))
         (name (oref repo name))
         (apihost (oref repo apihost)))
-    (glab-request
+    (ghub-request
      "DELETE"
      (format "projects/%s/pipeline/%s"
              (url-hexify-string (format "%s/%s" owner name))
              (cdr (assoc 'job-id value)))
      nil
+     :forge 'gitlab
      :host apihost
      :auth 'workline-mode)))
 
@@ -65,12 +65,14 @@
   (let ((owner (oref repo owner))
         (name (oref repo name))
         (apihost (oref repo apihost)))
-    (glab-post
+    (ghub-request
+     "POST"
      (format "projects/%s/jobs/%s/%s"
              (url-hexify-string (format "%s/%s" owner name))
              (cdr (assoc 'job-id value))
              command)
      nil
+     :forge 'gitlab
      :host apihost
      :auth 'workline-mode)))
 
@@ -94,9 +96,11 @@
   (let ((owner (oref repo owner))
         (name (oref repo name))
         (apihost (oref repo apihost)))
-    (glab-post
+    (ghub-request
+     "POST"
      (format "projects/%s/pipeline?ref=%s" (url-hexify-string (format "%s/%s" owner name)) ref)
      nil
+     :forge 'gitlab
      :host apihost
      :auth 'workline-mode
      :payload (workline-environment-variables)
@@ -257,7 +261,7 @@
     (kill-buffer workline-buffer))
   (with-current-buffer (get-buffer-create workline-buffer)
     (erase-buffer)
-    (insert (glab-get path nil :host host :reader 'ghub--decode-payload :auth 'workline-mode))
+    (insert (ghub-request "GET" path nil :forge 'gitlab :host host :reader 'ghub--decode-payload :auth 'workline-mode))
     (goto-char (point-min))
     (while (re-search-forward "" nil t)
       (replace-match "\n" nil nil))
@@ -307,7 +311,7 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
 
 (defun workline-pipelines-from-sha (host projectid &optional sha ref no-sha username first last)
   "Get Gitlab pipelines from sha."
-  (glab-graphql
+  (ghub-graphql
    `(query
      (project
       [(fullPath $projectid ID!)] (name)
@@ -341,7 +345,8 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
      (first . ,first)
      (last . ,last))
    :host host
-   :auth 'workline-mode))
+   :auth 'workline-mode
+   :forge 'gitlab))
 
 (provide 'workline-gitlab)
 
