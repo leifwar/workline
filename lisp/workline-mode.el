@@ -98,7 +98,11 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
            (string-to-number first))
          (if-let ((last (transient-arg-value "--last=" (transient-args 'workline-gitlab))))
            (string-to-number last)))
-      (workline-github-section repo (workline-branch-option t)))))
+      (workline-github-section
+       repo
+       (magit-rev-parse (magit-commit-at-point))
+       (workline-branch-option t)
+       (transient-arg-value "--no-sha" (transient-args 'workline-github))))))
 
 (defun workline-trigger-pipeline ()
   "Workline trigger pipeline."
@@ -152,6 +156,7 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
 
 (transient-define-prefix
  workline-github ()
+ ["Arguments" ("i" "Ignore sha" "--no-sha") ("A" "Show artifacts (github)" "--artifacts")]
  ["Actions"
   ("r" "Get pipeline(s)" workline-show-sha)
   ("t" "Trigger a pipeline" workline-trigger-pipeline)])

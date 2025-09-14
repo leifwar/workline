@@ -30,13 +30,37 @@
      (assoc
       'checkSuites
       (cdr
-       (assoc 'target (cdr (assoc 'ref (cdr (assoc 'repository (cdr (assoc 'data data)))))))))))))
+       (assoc 'object (cdr (assoc 'repository (cdr (assoc 'data data)))))))))))
 
-(defun workline-github-section (repo ref)
-  "Build workflow section for REPO given REF."
+(defun workline-github-artifacts (repo run-id)
+  "Fetch list of artifacts for REPO and RUN-ID."
   (let ((host (oref repo apihost))
         (name (oref repo name))
         (owner (oref repo owner)))
+    (if (transient-arg-value "--artifacts" (transient-args 'workline-github))
+	(let ((artifacts
+               (ghub-get
+		(format "repos/%s/%s/actions/runs/%d/artifacts" owner name run-id)
+		nil
+		:host host
+		:auth 'workline-mode)))
+          (if (>= (cdr (assoc 'total_count artifacts)) 1)
+              (magit-insert-section
+		  (artifacts artifacts t) (magit-insert-heading "  Artifacts")
+		  (magit-insert-section-body
+		    (seq-doseq (artifact (cdr (assoc 'artifacts artifacts)))
+                      (magit-insert-section
+			  (artifact (list artifact nil nil nil repo) t)
+			(magit-insert-heading
+			  (propertize (format "    %s" (cdr (assoc 'name artifact)))
+				      'font-lock-face 'magit-section-secondary-heading)))))))))))
+
+(defun workline-github-section (repo sha &optional bref ignore-sha)
+  "Build workflow section for REPO given SHA or BREF (ignore sha's from IGNORE-SHA if given)."
+  (let ((host (oref repo apihost))
+        (name (oref repo name))
+        (owner (oref repo owner))
+	(ref (if (and bref (not ignore-sha)) bref sha)))
     (with-current-buffer (get-buffer-create (format "*Workflow:%s:%s:%s:%s" host owner name ref))
       (workline-mode)
       (let ((inhibit-read-only t)
@@ -46,10 +70,12 @@
          (project (list repo ref) t) (magit-insert-heading (format "%s workflows" name))
          (magit-insert-section-body
           (seq-doseq (node nodes)
-            (if-let ((conclusion (cdr (assoc 'conclusion node)))
-                     (flow_name
-                      (cdr (assoc 'name (cdr (assoc 'workflow (cdr (assoc 'workflowRun node)))))))
-                     (resource-path (cdr (assoc 'resourcePath (cdr (assoc 'workflowRun node))))))
+            (when-let ((conclusion (cdr (assoc 'conclusion node)))
+                       (flow_name
+                        (cdr (assoc 'name (cdr (assoc 'workflow (cdr (assoc 'workflowRun node)))))))
+                       (run-id (cdr (assoc 'databaseId (cdr (assoc 'workflowRun node)))))
+                       (resource-path (cdr (assoc 'resourcePath (cdr (assoc 'workflowRun node))))))
+              (workline-github-artifacts repo run-id)
               (magit-insert-section
                (workline_branch nil) (make-directory (format "logs/%s" resource-path) t)
                (ghub-get
@@ -69,7 +95,7 @@
                                   0
                                   nil
                                   "-d"
-                                  (format "logs/%s" resource-path)
+                                  (format "logs%s" resource-path)
                                   "-u"
                                   fname))))
                (magit-insert-heading
@@ -113,9 +139,9 @@
   (if job-name
       (format "logs%s/%s/%s_%s.txt"
               resource-path
-              (replace-regexp-in-string "/" "" run-name)
+              (replace-regexp-in-string "/" "_" run-name)
               step
-              (replace-regexp-in-string "/" "" job-name))
+              (replace-regexp-in-string "/" "_" job-name))
     (format "logs%s/%s_%s.txt" resource-path step (replace-regexp-in-string "/" "" run-name))))
 
 (defun workline-retry-job-at-point-github (_step job-name resource-path _run-name repo)
@@ -151,17 +177,42 @@
   (if resource-path
       (browse-url (format "https://%s%s" (oref repo githost) resource-path))))
 
+(defun workline-job-trace-artifact-at-point-github (repo artifact)
+  (let ((host (oref repo apihost))
+        (archive_download_url (cdr (assoc 'archive_download_url artifact)))
+        (id (cdr (assoc 'id artifact))))
+    (ghub-get
+     (substring archive_download_url (string-match "repos/" archive_download_url)) nil
+     :host host
+     :reader 'ghub--decode-payload
+     :auth 'workline-mode
+     :callback
+     (lambda (value _headers _status _req)
+       (let* ((fname (format "artifacts/artifacts-%s.zip" id))
+	      (folder (file-name-sans-extension fname)))
+         (with-temp-file fname
+           (insert value))
+         (call-process "unzip" nil 0 nil "-d" folder "-u" fname)
+	 (dired folder)))
+     :errorback
+     (lambda (value _headers _status _req)
+       (message "%S" value)))
+    ))
+
+
 (defun workline-job-trace-at-point-github (step job-name resource-path run-name repo)
   "Workflow job trace at point."
-  (with-current-buffer (get-buffer-create (format "*Workflow:%s" resource-path))
-    (erase-buffer)
-    (insert-file-contents (workline-github-log-fname step job-name resource-path run-name))
-    (goto-char (point-min))
-    (while (re-search-forward "" nil t)
-      (replace-match "\n" nil nil))
-    (ansi-color-apply-on-region (point-min) (point-max))
-    (switch-to-buffer (current-buffer))
-    (view-mode)))
+  (if (magit-section-match 'artifact)
+      (workline-job-trace-artifact-at-point-github repo step)
+    (with-current-buffer (get-buffer-create (format "*Workflow:%s" resource-path))
+      (erase-buffer)
+      (insert-file-contents (workline-github-log-fname step job-name resource-path run-name))
+      (goto-char (point-min))
+      (while (re-search-forward "" nil t)
+        (replace-match "\n" nil nil))
+      (ansi-color-apply-on-region (point-min) (point-max))
+      (switch-to-buffer (current-buffer))
+      (view-mode))))
 
 (defun workline-workflow-from-ref (host owner name ref)
   "Get Github workflows from REF"
@@ -169,25 +220,23 @@
    `(query
      (repository
       [(owner $owner String!) (name $name String!)]
-      (ref
-       [(qualifiedName $ref String!)]
-       (target
-        (\...\ on\ Commit
-         (oid)
-         (checkSuites
-          [(last 6)]
-          (nodes
-           (conclusion) (workflowRun (resourcePath) (workflow (name)))
-           (checkRuns
-            [(last 100) (:filterBy (checkType LATEST CheckType!))]
-            (nodes
-             (detailsUrl)
-             (name)
-             (status)
-             (conclusion)
-             (detailsUrl)
-             (resourcePath)
-             (steps [(first 15)] (nodes (name) (conclusion) (number))))))))))))
+      (object
+       [(expression $ref String!)]
+       (\...\ on\ Commit
+        (checkSuites
+         [(last 6)]
+         (nodes
+          (conclusion) (workflowRun (databaseId) (resourcePath) (workflow (name)))
+          (checkRuns
+           [(last 100) (:filterBy (checkType LATEST CheckType!))]
+           (nodes
+            (detailsUrl)
+            (name)
+            (status)
+            (conclusion)
+            (detailsUrl)
+            (resourcePath)
+            (steps [(first 15)] (nodes (name) (conclusion) (number)))))))))))
    `((owner . ,owner) (name . ,name) (ref . ,ref))
    :auth 'workline-mode
    :host host))
