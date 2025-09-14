@@ -28,9 +28,7 @@
     'nodes
     (cdr
      (assoc
-      'checkSuites
-      (cdr
-       (assoc 'object (cdr (assoc 'repository (cdr (assoc 'data data)))))))))))
+      'checkSuites (cdr (assoc 'object (cdr (assoc 'repository (cdr (assoc 'data data)))))))))))
 
 (defun workline-github-artifacts (repo run-id)
   "Fetch list of artifacts for REPO and RUN-ID."
@@ -38,29 +36,34 @@
         (name (oref repo name))
         (owner (oref repo owner)))
     (if (transient-arg-value "--artifacts" (transient-args 'workline-github))
-	(let ((artifacts
+        (let ((artifacts
                (ghub-get
-		(format "repos/%s/%s/actions/runs/%d/artifacts" owner name run-id)
-		nil
-		:host host
-		:auth 'workline-mode)))
+                (format "repos/%s/%s/actions/runs/%d/artifacts" owner name run-id) nil
+                :host host
+                :auth 'workline-mode)))
           (if (>= (cdr (assoc 'total_count artifacts)) 1)
               (magit-insert-section
-		  (artifacts artifacts t) (magit-insert-heading "  Artifacts")
-		  (magit-insert-section-body
-		    (seq-doseq (artifact (cdr (assoc 'artifacts artifacts)))
-                      (magit-insert-section
-			  (artifact (list artifact nil nil nil repo) t)
-			(magit-insert-heading
-			  (propertize (format "    %s" (cdr (assoc 'name artifact)))
-				      'font-lock-face 'magit-section-secondary-heading)))))))))))
+               (artifacts artifacts t) (magit-insert-heading "  Artifacts")
+               (magit-insert-section-body
+                (seq-doseq (artifact (cdr (assoc 'artifacts artifacts)))
+                  (magit-insert-section
+                   (artifact (list artifact nil nil nil repo) t)
+                   (magit-insert-heading
+                    (propertize (format "    %s" (cdr (assoc 'name artifact)))
+                                'font-lock-face
+                                (if (cdr (assoc 'expired artifact))
+                                    'workline-gey
+                                  'magit-section-secondary-heading))))))))))))
 
 (defun workline-github-section (repo sha &optional bref ignore-sha)
   "Build workflow section for REPO given SHA or BREF (ignore sha's from IGNORE-SHA if given)."
   (let ((host (oref repo apihost))
         (name (oref repo name))
         (owner (oref repo owner))
-	(ref (if (and bref (not ignore-sha)) bref sha)))
+        (ref
+         (if (and bref (not ignore-sha))
+             bref
+           sha)))
     (with-current-buffer (get-buffer-create (format "*Workflow:%s:%s:%s:%s" host owner name ref))
       (workline-mode)
       (let ((inhibit-read-only t)
@@ -125,7 +128,9 @@
                             (format
                              "    %s %s"
                              (propertize (format "%2d" step-number) 'font-lock-face 'workline-grey)
-                             (workline-format-status (format "[%s] %s" run-conclusion step-name) step-conclusion)))))))))))))))))
+                             (workline-format-status
+                              (format "[%s] %s" run-conclusion step-name)
+                              step-conclusion)))))))))))))))))
       (pop-to-buffer (current-buffer))
       (let ((magit-section-cache-visibility nil))
         (magit-section-show magit-root-section)))))
@@ -175,26 +180,24 @@
       (browse-url (format "https://%s%s" (oref repo githost) resource-path))))
 
 (defun workline-job-trace-artifact-at-point-github (repo artifact)
-  (let ((host (oref repo apihost))
-        (archive_download_url (cdr (assoc 'archive_download_url artifact)))
-        (id (cdr (assoc 'id artifact))))
-    (ghub-get
-     (substring archive_download_url (string-match "repos/" archive_download_url)) nil
-     :host host
-     :reader 'ghub--decode-payload
-     :auth 'workline-mode
-     :callback
-     (lambda (value _headers _status _req)
-       (let* ((fname (format "artifacts/artifacts-%s.zip" id))
-	      (folder (file-name-sans-extension fname)))
-         (with-temp-file fname
-           (insert value))
-         (call-process "unzip" nil 0 nil "-d" folder "-u" fname)
-	 (dired folder)))
-     :errorback
-     (lambda (value _headers _status _req)
-       (message "%S" value)))
-    ))
+  (if (not (cdr (assoc 'expired artifact)))
+      (let ((host (oref repo apihost))
+            (archive_download_url (cdr (assoc 'archive_download_url artifact)))
+            (id (cdr (assoc 'id artifact))))
+        (ghub-get
+         (substring archive_download_url (string-match "repos/" archive_download_url)) nil
+         :host host
+         :reader 'ghub--decode-payload
+         :auth 'workline-mode
+         :callback
+         (lambda (value _headers _status _req)
+           (let* ((fname (format "artifacts/artifacts-%s.zip" id))
+                  (folder (file-name-sans-extension fname)))
+             (with-temp-file fname
+               (insert value))
+             (call-process "unzip" nil 0 nil "-d" folder "-u" fname)
+             (dired folder)))
+         :errorback (lambda (value _headers _status _req) (message "%S" value))))))
 
 
 (defun workline-job-trace-at-point-github (step job-name resource-path run-name repo)
