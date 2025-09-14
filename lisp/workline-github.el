@@ -111,8 +111,8 @@
                     (magit-insert-section
                      (workline_branch (list "0" nil resource-path run-name repo) t)
                      (magit-insert-heading
-                      (format "  - %s %s"
-                              (propertize run-name 'font-lock-face 'magit-section-heading)
+                      (format "   %s %s"
+                              (propertize run-name 'font-lock-face 'workline-stage)
                               (workline-format-status run-conclusion run-conclusion)))
                      (magit-insert-section-body
                       (seq-doseq (step (cdr (assoc 'nodes (cdr (assoc 'steps run)))))
@@ -123,12 +123,9 @@
                            (step (list step-number step-name resource-path run-name repo) t)
                            (magit-insert-heading
                             (format
-                             "   %s : %s %s"
+                             "    %s %s"
                              (propertize (format "%2d" step-number) 'font-lock-face 'workline-grey)
-                             (workline-format-status run-conclusion step-conclusion)
-                             (propertize
-                              step-name
-                              'font-lock-face 'magit-section-secondary-heading)))))))))))))))))
+                             (workline-format-status (format "[%s] %s" run-conclusion step-name) step-conclusion)))))))))))))))))
       (pop-to-buffer (current-buffer))
       (let ((magit-section-cache-visibility nil))
         (magit-section-show magit-root-section)))))
