@@ -70,7 +70,7 @@
             (nodes (workline-github-nodes (workline-workflow-from-ref host owner name ref))))
         (erase-buffer)
         (magit-insert-section
-         (project (list repo ref) t) (magit-insert-heading (format "%s workflows" name))
+         (project (list repo sha bref ignore-sha) t) (magit-insert-heading (format "%s workflows" name))
          (magit-insert-section-body
           (seq-doseq (node nodes)
             (when-let ((conclusion (cdr (assoc 'conclusion node)))

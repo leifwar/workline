@@ -217,7 +217,7 @@
         (let ((pipelines (cdr (assoc 'nodes (cdr (assoc 'pipelines project))))))
           (if pipelines
               (magit-insert-section
-               (project (list repo sha) t)
+               (project (list repo sha bref ignore-sha username first last) t)
                (magit-insert-heading (format "%s-pipeline" (cdr (assoc 'name project))))
                (magit-insert-section-body (workline-gitlab-section-pipeline pipelines " "))
                (pop-to-buffer (current-buffer)))
