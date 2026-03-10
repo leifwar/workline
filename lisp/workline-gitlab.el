@@ -29,48 +29,51 @@
 (defun workline-gitlab-job-artifacts (value)
   (seq-filter (lambda (elt) (not (string= (cdr (assoc 'fileType elt)) "TRACE"))) value))
 
+(defun workline-job-at-point-gitlab (repo value command)
+  (cond
+   ((magit-section-match 'job-id)
+    (workline-post-at-point-gitlab repo value command "jobs"))
+   ((magit-section-match 'main-id)
+    (workline-post-at-point-gitlab repo value command "pipelines"))))
+
 (defun workline-retry-job-at-point-gitlab (repo value)
   "Retry job at point using REPO and VALUE."
-  (workline-post-job-at-point-gitlab repo value "retry"))
+  (workline-job-at-point-gitlab repo value "retry"))
 
 (defun workline-cancel-job-at-point-gitlab (repo value)
   "Cancel job at point using REPO and VALUE."
-  (workline-post-job-at-point-gitlab repo value "cancel"))
+  (workline-job-at-point-gitlab repo value "cancel"))
 
 (defun workline-delete-pipeline-at-point-gitlab (repo value)
   "Cancel pipeline at point using REPO and VALUE."
-  (let ((owner (oref repo owner))
-        (name (oref repo name))
-        (apihost (oref repo apihost)))
+  (let ((apihost (oref repo apihost)))
     (ghub-request
      "DELETE"
      (format "projects/%s/pipelines/%s"
-             (url-hexify-string (format "%s/%s" owner name))
+             (url-hexify-string (cdr (assoc 'full-path value)))
              (cdr (assoc 'job-id value)))
      nil
      :forge 'gitlab
      :host apihost
      :auth 'workline-mode
-     :callback (lambda (_value _headers _status _req) )
-     )))
+     :callback (lambda (_value _headers _status _req)))))
 
 (defun workline-delete-at-point-gitlab (repo value)
   "Cancel job at point using REPO and VALUE."
   (cond
    ((magit-section-match 'job-id)
-    (workline-post-job-at-point-gitlab repo value "erase"))
+    (workline-post-at-point-gitlab repo value "erase" "jobs"))
    ((magit-section-match 'main-id)
     (workline-delete-pipeline-at-point-gitlab repo value))))
 
-(defun workline-post-job-at-point-gitlab (repo value command)
-  "Post job COMMAND at current point using REPO and VALUE."
-  (let ((owner (oref repo owner))
-        (name (oref repo name))
-        (apihost (oref repo apihost)))
+(defun workline-post-at-point-gitlab (repo value command command_type)
+  "Post COMMAND_TYPE COMMAND at current point using REPO and VALUE."
+  (let ((apihost (oref repo apihost)))
     (ghub-request
      "POST"
-     (format "projects/%s/jobs/%s/%s"
-             (url-hexify-string (format "%s/%s" owner name))
+     (format "projects/%s/%s/%s/%s"
+             (url-hexify-string (cdr (assoc 'full-path value)))
+             command_type
              (cdr (assoc 'job-id value))
              command)
      nil
@@ -117,9 +120,11 @@
       "WARNING"
     status))
 
-(defun workline-gitlab-section-jobs (ref main-id main-status stages indent)
+(defun workline-gitlab-section-jobs (ref main-id main-status full-path stages indent)
   (magit-insert-section
-   (main-id (list (cons 'job-id main-id) t) (string-equal main-status "SUCCESS"))
+   (main-id
+    (list (cons 'job-id main-id) (cons 'full-path full-path) t)
+    (string-equal main-status "SUCCESS"))
    (magit-insert-heading
     (format "%s %s %s %s"
             indent
@@ -132,7 +137,9 @@
             (stage-name (cdr (assoc 'name stage)))
             (stage-status (cdr (assoc 'status stage))))
         (magit-insert-section
-         (stage-id (list (cons 'stage-id stage-id) t) (string-equal stage-status "success"))
+         (stage-id
+          (list (cons 'stage-id stage-id) (cons 'full-path full-path) t)
+          (string-equal stage-status "success"))
          (magit-insert-heading
           (format " %s %s %s"
                   indent
@@ -145,7 +152,6 @@
                     (cdr (assoc 'status job)) (cdr (assoc 'allowFailure job))))
                   (job-id (workline--jobid (cdr (assoc 'id job))))
                   (job-name (cdr (assoc 'name job)))
-                  (full-path (cdr (assoc 'fullPath (cdr (assoc 'project job)))))
                   (downstream-pipeline (cdr (assoc 'downstreamPipeline job)))
                   (artifacts (cdr (assoc 'nodes (cdr (assoc 'artifacts job))))))
               (if-let ((downstream-id (cdr (assoc 'id downstream-pipeline)))
@@ -153,12 +159,15 @@
                         (workline-gitlab-check-warning
                          (cdr (assoc 'status downstream-pipeline))
                          (cdr (assoc 'allowFailure downstream-pipeline))))
+                       (downstream-full-path
+                        (cdr (assoc 'fullPath (cdr (assoc 'project downstream-pipeline)))))
                        (downstream-stages
                         (cdr (assoc 'nodes (cdr (assoc 'stages downstream-pipeline))))))
                 (workline-gitlab-section-jobs
                  (format "downstream::%s" job-name)
                  (workline--jobid downstream-id)
                  downstream-status
+                 downstream-full-path
                  downstream-stages
                  "   ")
                 (magit-insert-section
@@ -181,13 +190,13 @@
                            'font-lock-face 'magit-section-secondary-heading)))))))))))))))))
 
 
-(defun workline-gitlab-section-pipeline (pipelines indent)
+(defun workline-gitlab-section-pipeline (full-path pipelines indent)
   (seq-doseq (pipeline (sort pipelines :key 'workline-get-ref))
     (let ((ref (workline-get-ref pipeline))
           (main-id (workline--jobid (cdr (assoc 'id pipeline))))
           (main-status (cdr (assoc 'status pipeline)))
           (stages (cdr (assoc 'nodes (cdr (assoc 'stages pipeline))))))
-      (workline-gitlab-section-jobs ref main-id main-status stages indent))))
+      (workline-gitlab-section-jobs ref main-id main-status full-path stages indent))))
 
 (defun workline-gitlab-section (repo sha &optional bref ignore-sha username first last)
   ""
@@ -214,12 +223,14 @@
                                                   first
                                                   last))))))))
         (erase-buffer)
-        (let ((pipelines (cdr (assoc 'nodes (cdr (assoc 'pipelines project))))))
+        (let ((pipelines (cdr (assoc 'nodes (cdr (assoc 'pipelines project)))))
+              (full-path (cdr (assoc 'fullPath project))))
           (if pipelines
               (magit-insert-section
                (project (list repo sha bref ignore-sha username first last) t)
                (magit-insert-heading (format "%s-pipeline" (cdr (assoc 'name project))))
-               (magit-insert-section-body (workline-gitlab-section-pipeline pipelines " "))
+               (magit-insert-section-body
+                (workline-gitlab-section-pipeline full-path pipelines " "))
                (pop-to-buffer (current-buffer)))
             (progn
               (kill-buffer (current-buffer))
@@ -248,14 +259,13 @@
   (if (magit-section-match 'artifact)
       (workline-job-trace-artifact-at-point-gitlab repo value)
     (if-let ((job-id (cdr (assoc 'job-id value)))
-             (host (oref repo githost))
-             (owner (oref repo owner))
-             (name (oref repo name)))
+             (full-path (cdr (assoc 'full-path value)))
+             (host (oref repo githost)))
       (cond
        ((magit-section-match 'job-id)
-        (browse-url (format "https://%s/%s/%s/-/jobs/%s" host owner name job-id)))
+        (browse-url (format "https://%s/%s/-/jobs/%s" host full-path job-id)))
        ((magit-section-match 'main-id)
-        (browse-url (format "https://%s/%s/%s/-/pipelines/%s" host owner name job-id)))))))
+        (browse-url (format "https://%s/%s/-/pipelines/%s" host full-path job-id)))))))
 
 (defun workline-build-trace-buffer (workline-buffer host path)
   ""
@@ -324,7 +334,7 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
   (ghub-graphql
    `(query
      (project
-      [(fullPath $projectid ID!)] (name)
+      [(fullPath $projectid ID!)] (name) (fullPath)
       (pipelines
        ,@ (workline-pipeline-args sha ref no-sha username first last)
        (nodes
@@ -338,16 +348,12 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
             (status)
             (allowFailure)
             (name)
-            (project (fullPath))
             (artifacts (nodes (name) (downloadPath) (fileType) (id)))
             (downstreamPipeline
-             (id) (status)
+             (project (fullPath)) (id) (status)
              (stages
               (nodes
-               (name)
-               (id)
-               (status)
-               (jobs (nodes (id) (name) (status) (allowFailure) (project (fullPath)))))))))))))))
+               (name) (id) (status) (jobs (nodes (id) (name) (status) (allowFailure))))))))))))))
    `((projectid . ,projectid)
      (sha . ,sha)
      (ref . ,ref)
