@@ -28,7 +28,7 @@
     'nodes
     (cdr
      (assoc
-      'checkSuites (cdr (assoc 'object (cdr (assoc 'repository (cdr (assoc 'data data)))))))))))
+      'checkSuites (cdr (assoc 'object (cdr (assoc 'repository data)))))))))
 
 (defun workline-github-artifacts (repo run-id)
   "Fetch list of artifacts for REPO and RUN-ID."
@@ -216,7 +216,7 @@
 
 (defun workline-workflow-from-ref (host owner name ref)
   "Get Github workflows from REF"
-  (ghub-graphql
+  (ghub-query
    `(query
      (repository
       [(owner $owner String!) (name $name String!)]
@@ -238,6 +238,7 @@
             (resourcePath)
             (steps [(first 15)] (nodes (name) (conclusion) (number)))))))))))
    `((owner . ,owner) (name . ,name) (ref . ,ref))
+   :synchronous t
    :auth 'workline-mode
    :host host))
 

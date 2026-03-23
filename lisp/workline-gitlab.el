@@ -211,17 +211,14 @@
              (cdr
               (assoc
                'project
-               (cdr
-                (assoc
-                 'data
-                 (if sha
-                     (workline-pipelines-from-sha apihost project-id
+               (if sha
+                   (workline-pipelines-from-sha apihost project-id
                                                   sha
                                                   bref
                                                   ignore-sha
                                                   username
                                                   first
-                                                  last))))))))
+                                                  last))))))
         (erase-buffer)
         (let ((pipelines (cdr (assoc 'nodes (cdr (assoc 'pipelines project)))))
               (full-path (cdr (assoc 'fullPath project))))
@@ -331,7 +328,7 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
 
 (defun workline-pipelines-from-sha (host projectid &optional sha ref no-sha username first last)
   "Get Gitlab pipelines from sha."
-  (ghub-graphql
+  (ghub-query
    `(query
      (project
       [(fullPath $projectid ID!)] (name) (fullPath)
@@ -360,6 +357,7 @@ Limit to provided SHA, if not NO-SHA is given, and REF if defined"
      (username . ,username)
      (first . ,first)
      (last . ,last))
+   :synchronous t
    :host host
    :auth 'workline-mode
    :forge 'gitlab))
