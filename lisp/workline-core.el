@@ -125,28 +125,12 @@
       (apply (cdr (assoc 'github fun)) value))))
 
 
-(defun workline-sections-in-region ()
-  "Return all Magit sections that overlap the active region."
-  (interactive)
-  (let* ((beg (region-beginning))
-         (end (region-end))
-         (sections '()))
-    (magit-map-sections
-     (lambda (section)
-       (let ((s (oref section start))
-             (e (oref section end)))
-         (when (and s e (<= s end) (<= beg e))
-           (push section sections))))
-     magit-root-section)
-    (nreverse sections)))
-
-
 (defun workline-section-fun-at-point (fun)
   "Use FUN to trace section job at point."
   (if (not (magit-section-match 'project))
       (if-let ((repo (car (oref magit-root-section value))))
         (if (use-region-p)
-            (dolist (section (workline-sections-in-region))
+            (dolist (section (magit-region-sections))
               (if (forge-gitlab-repository--eieio-childp repo)
                   (apply (cdr (assoc 'gitlab fun)) (list repo (oref section value)))
                 (apply (cdr (assoc 'github fun)) (oref section value))))
