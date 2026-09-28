@@ -36,6 +36,7 @@
    (list (cons 'gitlab 'workline-gitlab-section) (cons 'github 'workline-github-section))))
 
 (defun workline-web-job-trace-at-point ()
+  "Open the web trace for the job at point in a browser."
   (interactive)
   (workline-section-fun-at-point
    (list
@@ -67,7 +68,7 @@
     (cons 'github 'workline-cancel-job-at-point-github))))
 
 (defun workline-delete-job-at-point ()
-  "Cancel job at point."
+  "Delete job at point."
   (interactive)
   (workline-section-fun-at-point
    (list
@@ -162,6 +163,7 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
   ("t" "Trigger a pipeline" workline-trigger-pipeline)])
 
 (defun workline ()
+  "Open the workline transient menu for the forge repository at point."
   (interactive)
   (if-let ((repo (forge-get-repository :valid?)))
     (cond

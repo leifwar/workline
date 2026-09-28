@@ -27,9 +27,13 @@
       (match-string 1 job-id)))
 
 (defun workline-gitlab-job-artifacts (value)
+  "Return VALUE filtered to exclude TRACE-type artifacts."
   (seq-filter (lambda (elt) (not (string= (cdr (assoc 'fileType elt)) "TRACE"))) value))
 
 (defun workline-job-at-point-gitlab (repo value command)
+  "Dispatch COMMAND for the GitLab job or pipeline at point.
+REPO is the forge repository object; VALUE is the section alist.
+Routes to jobs or pipelines endpoint depending on the current section type."
   (cond
    ((magit-section-match 'job-id)
     (workline-post-at-point-gitlab repo value command "jobs"))
@@ -112,6 +116,7 @@
      :callback (lambda (_value _headers _status _req)))))
 
 (defun workline-get-ref (pipeline)
+  "Return the ref (branch/tag) string from PIPELINE alist."
   (cdr (assoc 'ref pipeline)))
 
 (defun workline-gitlab-check-warning (status allow-failure)
@@ -121,6 +126,11 @@
     status))
 
 (defun workline-gitlab-section-jobs (ref main-id main-status full-path stages indent)
+  "Insert a magit section tree for a GitLab pipeline and its jobs.
+REF is the branch/tag name, MAIN-ID is the pipeline ID, MAIN-STATUS is the
+pipeline status string, FULL-PATH is the project full path, STAGES is the list
+of stage alists from the GraphQL response, and INDENT is the indentation prefix
+string (used for nested downstream pipelines)."
   (magit-insert-section
    (main-id
     (list (cons 'job-id main-id) (cons 'full-path full-path) t)
@@ -191,6 +201,9 @@
 
 
 (defun workline-gitlab-section-pipeline (full-path pipelines indent)
+  "Insert magit section trees for each pipeline in PIPELINES.
+FULL-PATH is the GitLab project path; pipelines are sorted by ref name.
+INDENT is the indentation prefix string passed through to `workline-gitlab-section-jobs'."
   (seq-doseq (pipeline (sort pipelines :key 'workline-get-ref))
     (let ((ref (workline-get-ref pipeline))
           (main-id (workline--jobid (cdr (assoc 'id pipeline))))
@@ -199,7 +212,10 @@
       (workline-gitlab-section-jobs ref main-id main-status full-path stages indent))))
 
 (defun workline-gitlab-section (repo sha &optional bref ignore-sha username first last)
-  ""
+  "Build and display a magit buffer showing GitLab pipelines for REPO at SHA.
+Optional BREF restricts to a specific branch ref.  When IGNORE-SHA is non-nil
+the SHA filter is dropped.  USERNAME, FIRST, and LAST are passed as GraphQL
+arguments to filter or paginate pipeline results."
   (let ((host (oref repo githost))
         (apihost (oref repo apihost))
         (project-id (format "%s/%s" (oref repo owner) (oref repo name))))
@@ -265,7 +281,9 @@
         (browse-url (format "https://%s/%s/-/pipelines/%s" host full-path job-id)))))))
 
 (defun workline-build-trace-buffer (workline-buffer host path)
-  ""
+  "Fetch and display a GitLab job trace in WORKLINE-BUFFER.
+Requests PATH from HOST via the GitLab REST API, strips form-feed characters,
+applies ANSI colours, and binds R to refresh the buffer."
   (ignore-errors
     (kill-buffer workline-buffer))
   (with-current-buffer (get-buffer-create workline-buffer)

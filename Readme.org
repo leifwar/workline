@@ -1,6 +1,6 @@
 * WorkLine
 
-A tool to check WORKflow ([[https://github.com][Github]]) or pipeLINE ([[https://gitlab.com][Gitlab]]) status in Emacs from [[https://magit.vc][magit]] and
+A tool to check WORKflow ([[https://github.com][Github]]) or pipeLINE ([[https://gitlab.com][Gitlab]]) status in Emacs using [[https://magit.vc][magit]] and
 [[https://magit.vc/manual/forge/][forge]]. It is inspired by [[https://github.com/TxGVNN/gitlab-pipeline][gitlab-pipeline]] and started as small changes to their code. The
 intention was to provide these upgrades to gitlab-pipeline if accepted as a PR, but as it
 evolved it also included Github actions, thus the name (gitlab-pipeline) did not fit.

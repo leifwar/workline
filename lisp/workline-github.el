@@ -137,7 +137,9 @@
 
 
 (defun workline-github-log-fname (step job-name resource-path run-name)
-  ""
+  "Return the local log file path for a GitHub Actions step.
+STEP is the step number, JOB-NAME is the job name (nil at the run level),
+RESOURCE-PATH is the GitHub run resource path, RUN-NAME is the workflow run name."
   (if job-name
       (format "logs%s/%s/%s_%s.txt"
               resource-path
@@ -147,6 +149,9 @@
     (format "logs%s/%s_%s.txt" resource-path step (replace-regexp-in-string "/" "" run-name))))
 
 (defun workline-retry-job-at-point-github (_step job-name resource-path _run-name repo)
+  "Rerun the GitHub Actions workflow run at point.
+Only acts when point is at the run level (JOB-NAME is nil).
+RESOURCE-PATH identifies the run; REPO provides the API host."
   (if (not job-name)
       (ghub-post
        (format "repos%s/rerun" resource-path)
@@ -156,6 +161,9 @@
        :callback (lambda (_value _headers _status _req)))))
 
 (defun workline-delete-job-at-point-github (_step job-name resource-path _run-name repo)
+  "Delete the GitHub Actions workflow run at point.
+Only acts when point is at the run level (JOB-NAME is nil).
+RESOURCE-PATH identifies the run; REPO provides the API host."
   (if (not job-name)
       (ghub-request
        "DELETE"
@@ -166,6 +174,9 @@
        :callback (lambda (_value _headers _status _req)))))
 
 (defun workline-cancel-job-at-point-github (_step job-name resource-path _run-name repo)
+  "Cancel the GitHub Actions workflow run at point.
+Only acts when point is at the run level (JOB-NAME is nil).
+RESOURCE-PATH identifies the run; REPO provides the API host."
   (if (not job-name)
       (ghub-post
        (format "repos%s/cancel" resource-path)
@@ -175,11 +186,15 @@
        :callback (lambda (_value _headers _status _req)))))
 
 (defun workline-job-web-trace-at-point-github (_step _job-name resource-path _run-name repo)
-  ""
+  "Open the GitHub Actions run at point in a web browser.
+RESOURCE-PATH is the run resource path; REPO provides the git host."
   (if resource-path
       (browse-url (format "https://%s%s" (oref repo githost) resource-path))))
 
 (defun workline-job-trace-artifact-at-point-github (repo artifact)
+  "Download and open a GitHub Actions artifact at point.
+REPO provides the API host and authentication; ARTIFACT is the artifact alist.
+Downloads to artifacts/ as a zip, extracts it, and opens the folder in dired."
   (if (not (cdr (assoc 'expired artifact)))
       (let ((host (oref repo apihost))
             (archive_download_url (cdr (assoc 'archive_download_url artifact)))
