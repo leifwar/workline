@@ -152,7 +152,7 @@ Current branch only if optional FORCE-BRANCH-OPTION is given."
   ("i" "Ignore sha" "--no-sha")
   ("A" "Show artifacts (gitlab)" "--artifacts")]
  ["Actions"
-  ("r" "Get pipeline(s)" workline-show-sha)
+  ("r" "Get pipeline(s)" workline-gitlab-show-pipeline)
   ("t" "Trigger a pipeline" workline-trigger-pipeline)])
 
 (transient-define-prefix

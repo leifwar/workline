@@ -26,6 +26,28 @@
   (if (string-match "gid://gitlab/.*/\\([0-9]+\\)$" job-id)
       (match-string 1 job-id)))
 
+(defun workline-gitlab-show-pipeline ()
+  "Show pipeline for either commit or pullreq."
+  (interactive)
+  (magit-section-case
+    (commit
+     (workline-show-sha))
+    (pullreq
+     (workline-gitlab-show-mr))))
+
+(defun workline-gitlab-show-mr ()
+  "Show the pipeline for the merge request at point."
+  (interactive)
+  (if-let ((repo (forge-get-repository :valid?)))
+      (let* ((section (magit-current-section))
+	     (pr (oref section value))
+	     (number (oref pr number)))
+	(workline-gitlab-section
+	 repo
+	 "Merge requests"
+	 (format "refs/merge-requests/%s/merge" number)
+	 t))))
+
 (defun workline-gitlab-job-artifacts (value)
   "Return VALUE filtered to exclude TRACE-type artifacts."
   (seq-filter (lambda (elt) (not (string= (cdr (assoc 'fileType elt)) "TRACE"))) value))
@@ -35,7 +57,7 @@
 REPO is the forge repository object; VALUE is the section alist.
 Routes to jobs or pipelines endpoint depending on the current section type."
   (cond
-   ((magit-section-match 'job-id)
+   ((or (magit-section-match 'job-id) (magit-section-match 'stage-id))
     (workline-post-at-point-gitlab repo value command "jobs"))
    ((magit-section-match 'main-id)
     (workline-post-at-point-gitlab repo value command "pipelines"))))
@@ -50,12 +72,13 @@ Routes to jobs or pipelines endpoint depending on the current section type."
 
 (defun workline-delete-pipeline-at-point-gitlab (repo value)
   "Cancel pipeline at point using REPO and VALUE."
-  (let ((apihost (oref repo apihost)))
+  (if-let ((apihost (oref repo apihost))
+	   (job-id (cdr (or (assoc 'job-id value) (assoc 'stage-id value)))))
     (ghub-request
      "DELETE"
      (format "projects/%s/pipelines/%s"
              (url-hexify-string (cdr (assoc 'full-path value)))
-             (cdr (assoc 'job-id value)))
+             job-id)
      nil
      :forge 'gitlab
      :host apihost
@@ -65,20 +88,21 @@ Routes to jobs or pipelines endpoint depending on the current section type."
 (defun workline-delete-at-point-gitlab (repo value)
   "Cancel job at point using REPO and VALUE."
   (cond
-   ((magit-section-match 'job-id)
+   ((or (magit-section-match 'job-id) (magit-section-match 'stage-id))
     (workline-post-at-point-gitlab repo value "erase" "jobs"))
    ((magit-section-match 'main-id)
     (workline-delete-pipeline-at-point-gitlab repo value))))
 
 (defun workline-post-at-point-gitlab (repo value command command_type)
   "Post COMMAND_TYPE COMMAND at current point using REPO and VALUE."
-  (let ((apihost (oref repo apihost)))
+  (if-let ((apihost (oref repo apihost))
+	   (job-id (cdr (or (assoc 'job-id value) (assoc 'stage-id value)))))
     (ghub-request
      "POST"
      (format "projects/%s/%s/%s/%s"
              (url-hexify-string (cdr (assoc 'full-path value)))
              command_type
-             (cdr (assoc 'job-id value))
+             job-id
              command)
      nil
      :forge 'gitlab
@@ -143,7 +167,7 @@ string (used for nested downstream pipelines)."
             (workline-format-status (downcase main-status) main-status)))
    (magit-insert-section-body
     (seq-doseq (stage stages)
-      (let ((stage-id (cdr (assoc 'id stage)))
+      (let ((stage-id (workline--jobid (cdr (assoc 'id stage))))
             (stage-name (cdr (assoc 'name stage)))
             (stage-status (cdr (assoc 'status stage))))
         (magit-insert-section
